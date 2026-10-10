@@ -1,0 +1,13 @@
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+MT741.xcodeproj/
+*.ipa
+*.dSYM.zip
+.swiftpm/
+.env
+secrets/

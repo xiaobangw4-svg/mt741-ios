@@ -1,0 +1,21 @@
+# https://github.com/wenjinliuu/ios-ci-workflows
+workdir: .
+project: MT741.xcodeproj
+scheme: MT741
+bundle_id: com.local.mt741
+display_name: MT741
+sync_command: 'true'
+generate_command: 'command -v xcodegen >/dev/null || brew install xcodegen; xcodegen generate'
+
+toolchain:
+  xcode: '26.6'
+  simulator: iPhone 17 Pro
+  ios: '26.4'
+
+build_test:
+  accessibility_audit: warn
+  commit_recorded_snapshots: true
+
+testflight:
+  entitlement_mode: none
+  acceptance_issue: true
