@@ -19,7 +19,7 @@ enum HeaderBuilder {
     static let referer = "https://h5.moutai519.com.cn/mt/item/smsp-detail?appConfig=2_1_2"
     static let h5UA = CookieBridge.h5UA
 
-    static func cookie(deviceId: String, token: String, dU: String = "") -> String {
+    static func cookie(deviceId: String, token: String, dU: String = "", gdxid: String = "") -> String {
         let tokenWap = token
         let values: [String: String] = [
             "_d_u": dU,
@@ -27,10 +27,15 @@ enum HeaderBuilder {
             "MT-Token-Wap": tokenWap,
             "_sdk_v_": sdkVer,
         ]
-        return cookieOrder.compactMap { key in
+        var parts = cookieOrder.compactMap { key -> String? in
             let val = values[key] ?? ""
             return val.isEmpty ? nil : "\(key)=\(val)"
-        }.joined(separator: "; ")
+        }
+        let gdx = gdxid.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !gdx.isEmpty {
+            parts.append("gdxidpyhxdE=\(gdx)")
+        }
+        return parts.joined(separator: "; ")
     }
 
     static func headers(
@@ -41,11 +46,12 @@ enum HeaderBuilder {
         cwb: String,
         contentHh: String = "",
         dU: String = "",
+        gdxid: String = "",
         referer: String = HeaderBuilder.referer
     ) -> [(String, String)] {
         let raw: [String: String] = [
             "Content-Web-Bb": cwb,
-            "Cookie": cookie(deviceId: deviceId, token: token, dU: dU),
+            "Cookie": cookie(deviceId: deviceId, token: token, dU: dU, gdxid: gdxid),
             "X-Requested-With": "XMLHttpRequest",
             "User-Agent": h5UA,
             "Referer": referer,

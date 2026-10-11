@@ -17,6 +17,7 @@ struct BurstView: View {
     @State private var shopId = ""
     @State private var ydToken = ""
     @State private var ydLogId = ""
+    @State private var solverURL = YidunSolver.storedURL
     @State private var log = "真机出单：登录后点「自动出单」。本机试跑用「开始异步请求」。"
     @State private var busy = false
     @State private var confirmOfficial = false
@@ -118,6 +119,16 @@ struct BurstView: View {
                         .accessibilityIdentifier("burst.cwbStatus")
                 }
                 Section("易盾 / 支付") {
+                    TextField("电脑 8889，如 http://192.168.1.8:8889", text: $solverURL)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                        .accessibilityIdentifier("burst.solver")
+                        .onChange(of: solverURL) { _, value in
+                            YidunSolver.storedURL = value
+                        }
+                    Text("4025 时自动调电脑一键启动的 8889 过点图。电脑和手机同一 Wi-Fi，求解窗口开着。解失败再弹手动滑块。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                     TextField("ydToken / validate", text: $ydToken)
                         .textInputAutocapitalization(.never)
                         .accessibilityIdentifier("burst.ydToken")
@@ -335,7 +346,7 @@ struct BurstView: View {
         await executeBurst(dest)
     }
 
-    private func executeBurst(_ dest: BurstTarget) async {
+    private func executeBurst(_ dest: BurstTarget, allowYidunRetry: Bool = true) async {
         let product = productStore.selected
         let req = BurstRequest(
             actId: actId.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -365,7 +376,23 @@ struct BurstView: View {
             } else if shopId.isEmpty {
                 shopId = hit.shopId
             }
-            if hit.canCompose, hit.orderId.isEmpty {
+            var yidunPassed = false
+            if dest != .mock, hit.needsYidun {
+                let passed = await passYidun(hit: hit, product: product)
+                extra += "\n\(passed.message)"
+                if passed.ok {
+                    yidunPassed = true
+                    ydToken = passed.token
+                    if allowYidunRetry, hit.code == 4025 {
+                        log = "易盾已过，带 ydToken 再打一枪…\n\(stats.summary)\(extra)"
+                        await executeBurst(dest, allowYidunRetry: false)
+                        return
+                    }
+                } else {
+                    showYidun = true
+                }
+            }
+            if hit.canCompose, hit.orderId.isEmpty, (!hit.needsYidun || yidunPassed) {
                 var addr: [String: Any]?
                 var dU = ""
                 if dest == .h5Page || h5Runtime.ready {
@@ -391,17 +418,43 @@ struct BurstView: View {
                 }
             }
             lastHit = hit
-            if dest != .mock {
-                if hit.needsYidun {
-                    showYidun = true
-                } else if !hit.orderId.isEmpty {
-                    showPay = true
-                } else if hit.isHit {
-                    showPay = true
-                }
+            if dest != .mock, (!hit.needsYidun || yidunPassed), hit.isHit || !hit.orderId.isEmpty {
+                showPay = true
             }
         }
         log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)"
+    }
+
+    private func passYidun(hit: RushHit, product: Product) async -> YidunSolver.Result {
+        let gdx = await h5Runtime.cookieValue("gdxidpyhxdE")
+        let solved = await YidunSolver.solve(
+            endpoint: solverURL,
+            captchaId: YidunClient.captchaId741,
+            pageUrl: product.h5URL.absoluteString,
+            priorityRecordId: hit.priorityRecordId,
+            deviceId: sessionStore.session.deviceId,
+            userAgent: CookieBridge.userAgent(deviceId: sessionStore.session.deviceId),
+            gdxid: gdx
+        )
+        if !solved.ok {
+            return solved
+        }
+        let fp = solved.fp.isEmpty ? gdx : solved.fp
+        if !hit.priorityRecordId.isEmpty {
+            let submitted = await YidunClient.verify(
+                validate: solved.token,
+                priorityRecordId: hit.priorityRecordId,
+                session: sessionStore.session,
+                gdxid: fp
+            )
+            return YidunSolver.Result(
+                ok: true,
+                token: solved.token,
+                fp: fp,
+                message: solved.message + "；" + submitted
+            )
+        }
+        return solved
     }
 
     private func applySpeed(_ value: String) {

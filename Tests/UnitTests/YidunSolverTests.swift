@@ -1,0 +1,90 @@
+import XCTest
+@testable import MT741
+
+final class YidunSolverTests: XCTestCase {
+    func testNormalizeFillsSchemeAndPath() {
+        XCTAssertEqual(
+            YidunSolver.normalize("192.168.1.8:8889")?.absoluteString,
+            "http://192.168.1.8:8889/api/verify"
+        )
+        XCTAssertEqual(
+            YidunSolver.normalize("http://192.168.1.8:8889/")?.absoluteString,
+            "http://192.168.1.8:8889/api/verify"
+        )
+        XCTAssertEqual(
+            YidunSolver.normalize("http://192.168.1.8:8889/api/verify")?.absoluteString,
+            "http://192.168.1.8:8889/api/verify"
+        )
+        XCTAssertNil(YidunSolver.normalize("  "))
+        XCTAssertNil(YidunSolver.normalize(""))
+    }
+
+    func testRequestJSONMatchesDesktop8889() {
+        let body = YidunSolver.requestJSON(
+            captchaId: YidunClient.captchaId741,
+            pageUrl: Product.sku741.h5URL.absoluteString,
+            priorityRecordId: "99",
+            deviceId: "DEV-1",
+            userAgent: "ua",
+            gdxid: "fp1"
+        )
+        XCTAssertEqual(body["captchaId"], YidunClient.captchaId741)
+        XCTAssertEqual(body["pageUrl"], Product.sku741.h5URL.absoluteString)
+        XCTAssertEqual(body["priorityRecordId"], "99")
+        XCTAssertEqual(body["deviceId"], "DEV-1")
+        XCTAssertEqual(body["userAgent"], "ua")
+        XCTAssertEqual(body["gdxid"], "fp1")
+        let slim = YidunSolver.requestJSON(
+            captchaId: "x",
+            pageUrl: "https://h5.moutai519.com.cn/",
+            priorityRecordId: "",
+            deviceId: "d",
+            userAgent: "u",
+            gdxid: ""
+        )
+        XCTAssertNil(slim["priorityRecordId"])
+        XCTAssertNil(slim["gdxid"])
+    }
+
+    func testParsePrefersFinalValidate() {
+        let raw = #"{"success":true,"data":{"result":true,"validate":"RAW","finalValidate":"CN31_FP_v_i_1","fp":"abc"}}"#
+        let got = YidunSolver.parse(raw)
+        XCTAssertTrue(got.ok)
+        XCTAssertEqual(got.token, "CN31_FP_v_i_1")
+        XCTAssertEqual(got.fp, "abc")
+        XCTAssertTrue(got.message.contains("8889"))
+    }
+
+    func testParseFallsBackToValidateAndEmpty() {
+        let raw = #"{"success":true,"data":{"result":true,"validate":"RAW"}}"#
+        let got = YidunSolver.parse(raw)
+        XCTAssertTrue(got.ok)
+        XCTAssertEqual(got.token, "RAW")
+        let miss = YidunSolver.parse(#"{"success":false,"error":"unsupported type"}"#)
+        XCTAssertFalse(miss.ok)
+        XCTAssertEqual(miss.message, "unsupported type")
+        XCTAssertFalse(YidunSolver.parse("nope").ok)
+    }
+
+    func testEmptyEndpointDoesNotHitNetwork() async {
+        let got = await YidunSolver.solve(
+            endpoint: "",
+            captchaId: YidunClient.captchaId741,
+            pageUrl: Product.sku741.h5URL.absoluteString,
+            priorityRecordId: "",
+            deviceId: "DEV",
+            userAgent: "ua",
+            gdxid: ""
+        )
+        XCTAssertFalse(got.ok)
+        XCTAssertEqual(got.message, "没填电脑 8889 地址")
+        XCTAssertTrue(got.token.isEmpty)
+    }
+
+    func testCookieCarriesGdxidWhenPresent() {
+        let withGdx = HeaderBuilder.cookie(deviceId: "DEV", token: "tok", gdxid: "fp%2F1")
+        XCTAssertTrue(withGdx.contains("gdxidpyhxdE=fp%2F1"))
+        let plain = HeaderBuilder.cookie(deviceId: "DEV", token: "tok")
+        XCTAssertFalse(plain.contains("gdxidpyhxdE"))
+    }
+}

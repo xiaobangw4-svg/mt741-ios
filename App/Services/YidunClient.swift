@@ -4,7 +4,7 @@ enum YidunClient {
     static let captchaId741 = "1e1ea52963a94c21b0babc42b2b5b910"
     static let verifyURL = URL(string: "https://h5.moutai519.com.cn/xhr/front/trade/priority/verify/code")!
 
-    static func verify(validate: String, priorityRecordId: String, session: Session, captchaId: String = captchaId741) async -> String {
+    static func verify(validate: String, priorityRecordId: String, session: Session, captchaId: String = captchaId741, gdxid: String = "") async -> String {
         let trimmed = validate.trimmingCharacters(in: .whitespacesAndNewlines)
         let rid = priorityRecordId.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return "validate 为空，先滑块" }
@@ -15,7 +15,7 @@ enum YidunClient {
             "priorityUserRecordId": rid,
         ]
         do {
-            let json = try await postJSON(url: verifyURL, body: bodyObj, session: session)
+            let json = try await postJSON(url: verifyURL, body: bodyObj, session: session, gdxid: gdxid)
             let code = AuthClient.jsonCode(json)
             if code == 2000 {
                 return "易盾已提交 code=2000"
@@ -26,7 +26,7 @@ enum YidunClient {
         }
     }
 
-    private static func postJSON(url: URL, body: [String: Any], session: Session) async throws -> [String: Any] {
+    private static func postJSON(url: URL, body: [String: Any], session: Session, gdxid: String = "") async throws -> [String: Any] {
         let token = session.cookie.isEmpty ? session.token : session.cookie
         let mtK = String(Int64(Date().timeIntervalSince1970 * 1000))
         let mtV = AuthDigest.mtV(
@@ -45,7 +45,8 @@ enum YidunClient {
             token: token,
             mtK: mtK,
             mtV: mtV,
-            cwb: ""
+            cwb: "",
+            gdxid: gdxid
         ) {
             request.setValue(value, forHTTPHeaderField: key)
         }

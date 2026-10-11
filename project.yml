@@ -38,6 +38,9 @@ targets:
         LSApplicationQueriesSchemes:
           - alipays
           - alipay
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+          NSAllowsLocalNetworking: true
         UILaunchScreen: {}
         CFBundleDisplayName: MT741
     scheme:

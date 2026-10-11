@@ -84,13 +84,13 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 - 商品页：点选 741 / `IMTP1000313` / 飞天 500ml（默认 1 瓶，`hot/branch/one`）或 10193 / `IMTP1000006` / 飞天 100ml（默认 2 瓶，`hot/branch/five`）
 - 登录页：短信验证码，打 `app.moutai519.com.cn` 的 vcode / login；实名、找回身份证、注销账号。会话不保存 `idCode`，身份证不落盘
 - H5 页：WKWebView 打开官方 `h5.moutai519.com.cn`，拦截 XHR/fetch 的 `Content-Web-Bb`
-- 出单：真机登录后在异步页点 **自动出单**。App 加载官方商品页，由页内 wasm 现签 CWB、拉当日 actId、开火，2000 后 `compose`/`submit` 出 `orderId`，再 `order/pay` + `requestPay` channel=71 拉起支付宝
+- 出单：真机登录后在异步页点 **自动出单**。App 加载官方商品页，由页内 wasm 现签 CWB、拉当日 actId、开火，2000 后 `compose`/`submit` 出 `orderId`，再 `order/pay` + `requestPay` channel=71 拉起支付宝。4025 时把电脑一键启动的 `8889/api/verify` 填进异步页，自动过点图后再打。
 
 验证码 MD5 与 Windows 工具同一套盐：`md5(VCODE_SALT + mobile + timestamp)`。
 
 ## 测试
 
-- 逻辑：SKU 741 / 10193、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、实名/找回身份证/注销解析、CWB 拦截脚本、H5 页内开火脚本、purchaseInfoV2 解析、compose 明文
+- 逻辑：SKU 741 / 10193、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、实名/找回身份证/注销解析、CWB 拦截脚本、H5 页内开火脚本、purchaseInfoV2 解析、compose 明文、电脑 8889 易盾 JSON
 - UI：启动看到 741 和 10193 商品卡；切到登录页看到输入框、实名和注销按钮（`waitForExistence`，不用 sleep）
 
 改完代码只 push，以 CI 报告为准。
