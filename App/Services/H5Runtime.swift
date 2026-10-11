@@ -187,49 +187,38 @@ final class H5Runtime: NSObject, ObservableObject {
         }
     }
 
-    func waitUntilReady(seconds: Double, product: Product = .sku741, session: Session? = nil) async -> String? {
+    func waitUntilLive(seconds: Double) async -> String? {
         keepInWindow()
         let deadline = Date().addingTimeInterval(seconds)
         var last = "H5 页未就绪"
         while Date() < deadline {
             reinstallHooks()
-            if isLive, await fireFunctionReady() {
+            if isLive, await requestFunctionReady() {
                 ready = true
-                if await probeSigned(product: product, session: session) {
-                    let n = cwbStore?.cwb.count ?? 0
-                    if n >= CWBStore.officialLength - 10 {
-                        return nil
-                    }
-                    last = n == 0
-                        ? "商品页已开，等 wasm 现签 CWB（真机 800 字）"
-                        : "CWB \(n)/\(CWBStore.officialLength)，等 wasm 对齐真机 UA"
-                    try? await Task.sleep(nanoseconds: 800_000_000)
-                    continue
-                }
-                if let n = cwbStore?.cwb.count, n >= CWBStore.officialLength - 10 {
-                    return nil
-                }
-                last = lastProbe.isEmpty ? "商品页已开，等 wasm 现签 CWB" : lastProbe
-            } else {
-                last = pageError() ?? "H5 页未就绪（先登录，等商品页 wasm 起来）"
+                return nil
             }
-            try? await Task.sleep(nanoseconds: 800_000_000)
+            last = pageError() ?? "H5 页未就绪（先登录，等商品页起来）"
+            try? await Task.sleep(nanoseconds: 400_000_000)
         }
-        if isLive, await fireFunctionReady() {
+        if isLive, await requestFunctionReady() {
             ready = true
             return nil
         }
         return last
     }
 
-    private func probeSigned(product: Product, session: Session?) async -> Bool {
-        let info = await fetchActId(product: product, session: session)
-        if info.ok { return true }
-        let msg = info.message
-        if msg.contains("code=") || msg.contains("4011") || msg.contains("4293") || msg.contains("暂无 actId") || msg.contains("未找到购买信息") {
-            return !(cwbStore?.cwb.isEmpty ?? true) || msg.contains("暂无 actId") || msg.contains("未找到购买信息")
+    func waitUntilReady(seconds: Double, product: Product = .sku741, session: Session? = nil) async -> String? {
+        if let err = await waitUntilLive(seconds: seconds) {
+            return err
         }
-        return false
+        let deadline = Date().addingTimeInterval(min(8, max(0, seconds)))
+        while Date() < deadline {
+            if await fireFunctionReady(), (cwbStore?.cwb.count ?? 0) >= CWBStore.officialLength - 10 {
+                return nil
+            }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+        }
+        return nil
     }
 
     private func requestJSON(method: String, url: String, body: String?, session: Session?, timeoutMs: Int) async throws -> [String: Any] {
@@ -240,7 +229,11 @@ final class H5Runtime: NSObject, ObservableObject {
         if let session {
             payload["headers"] = H5Fire.pageHeaders(deviceId: session.deviceId)
         }
-        let result = try await callJS("return await window.__mt741request(payload);", arguments: ["payload": payload])
+        let result = try await callJS(
+            "return await window.__mt741request(payload);",
+            arguments: ["payload": payload],
+            timeoutSeconds: 12
+        )
         let row = (result as? [String: Any]) ?? [:]
         let text = JSONText.string(row["body"])
         let err = JSONText.string(row["error"])
@@ -255,7 +248,7 @@ final class H5Runtime: NSObject, ObservableObject {
         return json
     }
 
-    private func callJS(_ body: String, arguments: [String: Any] = [:]) async throws -> Any? {
+    private func callJS(_ body: String, arguments: [String: Any] = [:], timeoutSeconds: Double = 15) async throws -> Any? {
         let id = UUID().uuidString
         let argsJSON = jsonAtom(arguments)
         let bindings = arguments.keys.map { key in
@@ -265,23 +258,23 @@ final class H5Runtime: NSObject, ObservableObject {
         (function() {
           var id = \(jsonAtom(id));
           var args = \(argsJSON);
+          var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mt741js;
+          if (!h) throw new Error('mt741js missing');
           Promise.resolve().then(async function() {
             \(bindings)
             \(body)
           }).then(function(value) {
-            var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mt741js;
-            if (!h) return;
             try { h.postMessage({id: id, ok: true, value: value}); }
             catch (e) {
               try { h.postMessage({id: id, ok: true, json: JSON.stringify(value)}); }
               catch (e2) { h.postMessage({id: id, ok: false, error: String(e2)}); }
             }
           }).catch(function(e) {
-            var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mt741js;
-            if (h) h.postMessage({id: id, ok: false, error: String(e)});
+            h.postMessage({id: id, ok: false, error: String(e)});
           });
         })();
         """
+        let ns = UInt64(max(3, timeoutSeconds) * 1_000_000_000)
         return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Any?, Error>) in
             pendingJS[id] = cont
             webView.evaluateJavaScript(script) { [weak self] _, error in
@@ -291,7 +284,7 @@ final class H5Runtime: NSObject, ObservableObject {
                 }
             }
             Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 90_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
                 self?.failJS(id: id, message: "H5 JS 超时")
             }
         }
@@ -342,9 +335,17 @@ final class H5Runtime: NSObject, ObservableObject {
         webView.evaluateJavaScript("window.__mt741hookCWB && window.__mt741hookCWB()") { _, _ in }
     }
 
+    private func requestFunctionReady() async -> Bool {
+        await jsFunctionExists("__mt741request")
+    }
+
     private func fireFunctionReady() async -> Bool {
+        await jsFunctionExists("__mt741fire")
+    }
+
+    private func jsFunctionExists(_ name: String) async -> Bool {
         await withCheckedContinuation { cont in
-            webView.evaluateJavaScript("typeof window.__mt741fire === 'function'") { result, _ in
+            webView.evaluateJavaScript("typeof window.\(name) === 'function'") { result, _ in
                 let ok = (result as? Bool) == true
                     || (result as? NSNumber)?.boolValue == true
                     || (result as? String) == "true"

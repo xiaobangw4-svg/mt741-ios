@@ -29,6 +29,7 @@ final class MT741UITests: XCTestCase {
         tapTab(app, "异步")
         XCTAssertTrue(app.buttons["burst.auto"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["burst.fetchAct"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["burst.fetchHint"].waitForExistence(timeout: 5))
         let start = app.buttons["burst.start"]
         XCTAssertTrue(start.waitForExistence(timeout: 8))
         start.tap()

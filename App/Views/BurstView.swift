@@ -25,6 +25,7 @@ struct BurstView: View {
     @State private var showPay = false
     @State private var lastHit = RushHit()
     @State private var lastSku = Product.sku741.sku
+    @State private var fetchHint = ""
 
     var body: some View {
         NavigationStack {
@@ -55,9 +56,13 @@ struct BurstView: View {
                     TextField("门店 shopId（可空）", text: $shopId)
                         .textInputAutocapitalization(.never)
                         .accessibilityIdentifier("burst.shopId")
-                    Button("拉取当日 actId") { Task { await fetchActId() } }
+                    Button(busy ? "拉取中…" : "拉取当日 actId") { Task { await fetchActId() } }
                         .disabled(busy)
                         .accessibilityIdentifier("burst.fetchAct")
+                    Text(fetchHint.isEmpty ? "一点就拉当前商品的当日 actId，结果写在上面这一行和日志里。" : fetchHint)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("burst.fetchHint")
                 }
                 Section {
                     Button(busy ? "请求中…" : "开始异步请求") { start() }
@@ -230,18 +235,32 @@ struct BurstView: View {
 
     private func fetchActId() async {
         let product = productStore.selected
+        busy = true
+        defer { busy = false }
+        fetchHint = "正在拉 \(product.volume)（SKU \(product.sku)）当日 actId…"
+        log = fetchHint
         h5Runtime.bindIfNeeded(
             session: sessionStore.session,
             cwbStore: cwbStore,
-            product: product
+            product: product,
+            forceLoad: !h5Runtime.isLive
         )
         var info: PurchaseInfo
+        var via = "URLSession"
         if sessionStore.session.isLoggedIn {
-            if let err = await h5Runtime.waitUntilReady(seconds: 20, product: product, session: sessionStore.session) {
-                log = "H5 未就绪：\(err)，改走 URLSession"
+            if let err = await h5Runtime.waitUntilLive(seconds: 8) {
+                fetchHint = "H5 未就绪：\(err)，改走 URLSession"
+                log = fetchHint
                 info = await CatalogClient.fetch(session: sessionStore.session, product: product)
             } else {
+                via = "H5"
                 info = await h5Runtime.fetchActId(product: product, session: sessionStore.session)
+                if !info.ok {
+                    via = "URLSession"
+                    fetchHint = "H5 拉号失败：\(info.message)，改走 URLSession"
+                    log = fetchHint
+                    info = await CatalogClient.fetch(session: sessionStore.session, product: product)
+                }
             }
         } else {
             info = await CatalogClient.fetch(session: sessionStore.session, product: product)
@@ -251,12 +270,11 @@ struct BurstView: View {
             if !info.shopId.isEmpty {
                 shopId = info.shopId
             }
+            fetchHint = "\(product.volume) actId=\(info.actId) sku=\(info.skuId) shop=\(info.shopId) via \(via)"
+        } else {
+            fetchHint = "\(product.volume) 拉不到：\(info.message) via \(via)"
         }
-        if !busy {
-            log = info.ok
-                ? "purchaseInfoV2 actId=\(info.actId) sku=\(info.skuId) CWB=\(cwbStore.cwb.count)"
-                : "purchaseInfoV2 \(info.message)"
-        }
+        log = fetchHint + "\nCWB \(cwbStore.cwb.count)/\(CWBStore.officialLength) H5=\(h5Runtime.pageURL)"
     }
 
     private func autoRun() async {
