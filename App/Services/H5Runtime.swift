@@ -35,7 +35,10 @@ final class H5Runtime: NSObject, ObservableObject {
         config.userContentController = content
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 375, height: 667), configuration: config)
-        view.customUserAgent = CookieBridge.h5UA
+        view.customUserAgent = CookieBridge.userAgent(deviceId: "MT741")
+        view.isOpaque = true
+        view.backgroundColor = .white
+        view.scrollView.backgroundColor = .white
         view.accessibilityIdentifier = "h5.webview"
         webView = view
         super.init()
@@ -65,6 +68,7 @@ final class H5Runtime: NSObject, ObservableObject {
         let next = session.cookie + "|" + session.token + "|" + session.deviceId + "|" + product.sku
         if fingerprint == next, webView.url != nil, !forceLoad { return }
         fingerprint = next
+        webView.customUserAgent = CookieBridge.userAgent(deviceId: session.deviceId)
         CookieBridge.apply(session) { [weak self] in
             self?.keepInWindow()
             self?.webView.load(URLRequest(url: product.h5URL))
@@ -192,9 +196,17 @@ final class H5Runtime: NSObject, ObservableObject {
             if isLive, await fireFunctionReady() {
                 ready = true
                 if await probeSigned(product: product, session: session) {
-                    return nil
+                    let n = cwbStore?.cwb.count ?? 0
+                    if n >= CWBStore.officialLength - 10 {
+                        return nil
+                    }
+                    last = n == 0
+                        ? "商品页已开，等 wasm 现签 CWB（真机 800 字）"
+                        : "CWB \(n)/\(CWBStore.officialLength)，等 wasm 对齐真机 UA"
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    continue
                 }
-                if !(cwbStore?.cwb.isEmpty ?? true) {
+                if let n = cwbStore?.cwb.count, n >= CWBStore.officialLength - 10 {
                     return nil
                 }
                 last = lastProbe.isEmpty ? "商品页已开，等 wasm 现签 CWB" : lastProbe
@@ -351,7 +363,7 @@ enum HiddenWebHost {
     private static let host: UIView = {
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
         view.isUserInteractionEnabled = false
-        view.alpha = 0.03
+        view.alpha = 1
         view.clipsToBounds = true
         view.accessibilityIdentifier = "h5.hiddenHost"
         return view
@@ -384,7 +396,8 @@ enum HiddenWebHost {
         let w = max(window.bounds.width, 375)
         let h = max(window.bounds.height, 667)
         host.frame = CGRect(x: 0, y: 0, width: w, height: h)
-        host.alpha = 0.03
+        host.alpha = 1
+        host.isUserInteractionEnabled = false
     }
 
     private static var keyWindow: UIWindow? {

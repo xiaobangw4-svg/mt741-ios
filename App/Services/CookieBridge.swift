@@ -4,7 +4,21 @@ import WebKit
 enum CookieBridge {
     static let h5Host = "h5.moutai519.com.cn"
     static let appHost = "app.moutai519.com.cn"
-    static let h5UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 moutaiapp/1.9.14"
+
+    /// Official iOS WebView UA from 2026-10-07 capture: moutaiapp/1.9.14 device-id/<32hex> BS-DVID/<token>.
+    /// Missing those two tokens makes wasm CWB 768 instead of the real-device 800.
+    static func userAgent(deviceId: String, bsDvid: String = "") -> String {
+        let raw = deviceId.isEmpty ? "MT741" : deviceId
+        let did = AuthDigest.md5Hex(raw)
+        var ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 moutaiapp/\(AuthDigest.appVersion) device-id/\(did)"
+        let dvid = bsDvid.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !dvid.isEmpty {
+            ua += " BS-DVID/\(dvid)"
+        }
+        return ua
+    }
+
+    static var h5UA: String { userAgent(deviceId: "MT741") }
 
     static func cookies(from session: Session) -> [HTTPCookie] {
         let token = session.cookie.isEmpty ? session.token : session.cookie

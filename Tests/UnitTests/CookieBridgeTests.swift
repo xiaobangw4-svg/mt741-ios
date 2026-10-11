@@ -24,4 +24,14 @@ final class CookieBridgeTests: XCTestCase {
         XCTAssertTrue(cookies.allSatisfy { $0.name == "MT-Device-ID-Wap" })
         XCTAssertEqual(Set(cookies.map(\.value)), ["DEV-2"])
     }
+
+    func testUserAgentLooksLikeOfficialAppWebView() {
+        let ua = CookieBridge.userAgent(deviceId: "DEV-1")
+        XCTAssertTrue(ua.contains("moutaiapp/\(AuthDigest.appVersion)"))
+        XCTAssertTrue(ua.contains("device-id/\(AuthDigest.md5Hex("DEV-1"))"))
+        XCTAssertFalse(ua.contains("BS-DVID"))
+        let withDvid = CookieBridge.userAgent(deviceId: "DEV-1", bsDvid: "tok")
+        XCTAssertTrue(withDvid.contains("BS-DVID/tok"))
+        XCTAssertTrue(CookieBridge.h5UA.contains("device-id/"))
+    }
 }

@@ -2,9 +2,15 @@ import Combine
 import Foundation
 
 final class CWBStore: ObservableObject {
+    static let officialLength = 800
+
     @Published var cwb: String = ""
     @Published var contentHh: String = ""
     @Published var sourceURL: String = ""
+
+    var lengthText: String {
+        cwb.isEmpty ? "CWB空" : "CWB \(cwb.count)/\(Self.officialLength)"
+    }
 
     func ingest(_ body: Any) {
         let parsed = CWBHook.parse(body)

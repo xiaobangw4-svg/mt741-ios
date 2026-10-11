@@ -194,7 +194,7 @@ struct BurstView: View {
     private var pipelineStatus: String {
         let login = sessionStore.session.isLoggedIn ? "已登录" : "未登录"
         let h5 = h5Runtime.ready ? "H5就绪" : "H5未就绪"
-        let cwbText = cwbStore.cwb.isEmpty ? "CWB空" : "CWB \(cwbStore.cwb.count)字"
+        let cwbText = cwbStore.lengthText
         return "\(login) · \(h5) · \(cwbText) · actId \(actId.isEmpty ? "无" : actId)"
     }
 
@@ -271,7 +271,7 @@ struct BurstView: View {
             log = "商品页未就绪：\(err)"
             return
         }
-        log = "2/4 拉取当日 actId… CWB=\(cwbStore.cwb.isEmpty ? "页内现签" : "\(cwbStore.cwb.count)字")"
+        log = "2/4 拉取当日 actId… \(cwbStore.lengthText)（真机 rush 是 \(CWBStore.officialLength)）"
         let info = await h5Runtime.fetchActId(product: product, session: sessionStore.session)
         if info.ok {
             actId = info.actId
@@ -279,7 +279,7 @@ struct BurstView: View {
                 shopId = info.shopId
             }
         } else {
-            log = "actId 拉不到：\(info.message)\nCWB=\(cwbStore.cwb.count) H5=\(h5Runtime.pageURL)"
+            log = "actId 拉不到：\(info.message)\n\(cwbStore.lengthText) H5=\(h5Runtime.pageURL)"
             return
         }
         log = "3/4 actId=\(actId) 页内开火 sku=\(product.sku) n=\(n)…"
