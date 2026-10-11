@@ -185,16 +185,17 @@ enum StyleTotalPatch {
         if (!st || !isProbe(el)) return st;
         try {
           window.__mt741styleBump = (window.__mt741styleBump || 0) + 1;
-          return new Proxy(st, {
-            get: function (t, p) {
-              if (p === 'width' || p === 'height') {
-                try { return bumpPx(t[p]); } catch (e) {}
-              }
-              var v = t[p];
-              if (typeof v === 'function') return v.bind(t);
-              return v;
+          return {
+            width: bumpPx(st.width),
+            height: bumpPx(st.height),
+            paddingTop: st.paddingTop,
+            getPropertyValue: function (name) {
+              if (name === 'width') return this.width;
+              if (name === 'height') return this.height;
+              if (name === 'padding-top' || name === 'paddingTop') return this.paddingTop;
+              try { return st.getPropertyValue(name); } catch (e) { return ''; }
             }
-          });
+          };
         } catch (e) { return st; }
       }
       function hookGCS() {

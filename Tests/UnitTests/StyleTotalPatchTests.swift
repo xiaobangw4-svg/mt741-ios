@@ -21,6 +21,8 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(js.contains("hookGCS()"))
         XCTAssertTrue(js.contains("bumpPx"))
         XCTAssertTrue(js.contains("isProbe"))
+        XCTAssertTrue(js.contains("width: bumpPx(st.width)"))
+        XCTAssertFalse(js.contains("new Proxy"))
         XCTAssertTrue(js.contains("beforeload"))
         XCTAssertTrue(js.contains("HTMLScriptElement.prototype"))
         XCTAssertTrue(js.contains("xhr.open('GET', url, false)"))
