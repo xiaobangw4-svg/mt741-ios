@@ -36,7 +36,7 @@ enum StyleTotalSDK {
         (function(){
           try {
             var s=document.createElement('script');
-            s.src=\(jsonAtom(url));
+            s.src='\(url)';
             s.async=false;
             (document.documentElement||document).appendChild(s);
           } catch(e) {}
@@ -93,12 +93,4 @@ enum StyleTotalSDK {
         }
     }
 
-    private static func jsonAtom(_ value: String) -> String {
-        guard let data = try? JSONSerialization.data(withJSONObject: [value]),
-              let text = String(data: data, encoding: .utf8), text.count >= 2
-        else {
-            return "''"
-        }
-        return String(text.dropFirst().dropLast())
-    }
 }
