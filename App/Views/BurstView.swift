@@ -4,8 +4,9 @@ struct BurstView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @EnvironmentObject private var cwbStore: CWBStore
     @EnvironmentObject private var h5Runtime: H5Runtime
+    @EnvironmentObject private var productStore: ProductStore
     @State private var actId = "103783"
-    @State private var amount = "1"
+    @State private var amount = Product.sku741.defaultAmount
     @State private var n = "8"
     @State private var concurrency = "8"
     @State private var interval = "0"
@@ -27,7 +28,7 @@ struct BurstView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("741 异步请求") {
+                Section("\(productStore.selected.volume) 异步请求") {
                     TextField("活动 ID", text: $actId)
                         .keyboardType(.numberPad)
                         .accessibilityIdentifier("burst.actId")
@@ -117,7 +118,8 @@ struct BurstView: View {
                 }
             }
             .navigationTitle("异步")
-            .task {
+            .task(id: productStore.selected.sku) {
+                amount = productStore.selected.defaultAmount
                 if sessionStore.session.isLoggedIn {
                     await fetchActId()
                 }
@@ -126,7 +128,7 @@ struct BurstView: View {
                 Button("取消", role: .cancel) {}
                 Button("开火") { Task { await runBurst(.h5Page) } }
             } message: {
-                Text("在后台挂着的官方商品页里用 XHR 抢 741，页内 wasm 现签 CWB。命中后自动组单、order/pay、拉起支付宝。")
+                Text("在后台挂着的官方商品页里用 XHR 抢 SKU \(productStore.selected.sku)（\(productStore.selected.volume)），页内 wasm 现签 CWB。命中后自动组单、order/pay、拉起支付宝。")
             }
             .alert("直连官方地址", isPresented: $confirmOfficial) {
                 Button("取消", role: .cancel) {}
@@ -167,8 +169,10 @@ struct BurstView: View {
     }
 
     private func dryRun() {
+        let product = productStore.selected
         let plain = RushPlain(
-            amount: amount.isEmpty ? "1" : amount,
+            amount: amount.isEmpty ? product.defaultAmount : amount,
+            itemCode: product.sku,
             itemPriorityActId: actId,
             deviceId: sessionStore.session.deviceId,
             userId: sessionStore.session.userId
@@ -203,9 +207,9 @@ struct BurstView: View {
     private func fetchActId() async {
         let info: PurchaseInfo
         if h5Runtime.ready {
-            info = await h5Runtime.fetchActId()
+            info = await h5Runtime.fetchActId(product: productStore.selected)
         } else {
-            info = await CatalogClient.fetch(session: sessionStore.session)
+            info = await CatalogClient.fetch(session: sessionStore.session, product: productStore.selected)
         }
         if info.ok {
             actId = info.actId
@@ -221,15 +225,16 @@ struct BurstView: View {
     }
 
     private func runBurst(_ dest: BurstTarget) async {
+        let product = productStore.selected
         if dest == .h5Page, !sessionStore.session.isLoggedIn {
-            log = "先登录再选「H5出单」。登录后 App 会在后台加载官方 741 商品页。"
+            log = "先登录再选「H5出单」。登录后 App 会在后台加载官方 \(product.volume) 商品页。"
             return
         }
         busy = true
         defer { busy = false }
         let req = BurstRequest(
             actId: actId.trimmingCharacters(in: .whitespacesAndNewlines),
-            amount: amount,
+            amount: amount.isEmpty ? product.defaultAmount : amount,
             n: Int(n) ?? 8,
             concurrency: Int(concurrency) ?? 8,
             intervalMs: Int(interval) ?? 0,
@@ -237,9 +242,10 @@ struct BurstView: View {
             shopId: shopId,
             ydToken: ydToken,
             ydLogId: ydLogId,
-            target: dest
+            target: dest,
+            product: product
         )
-        log = "开始 \(dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=741"
+        log = "开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku)"
         let stats: BurstStats
         if dest == .h5Page {
             stats = await h5Runtime.fire(request: req, session: sessionStore.session)
@@ -266,11 +272,12 @@ struct BurstView: View {
                 let placed = await OrderClient.place(
                     session: sessionStore.session,
                     hit: hit,
-                    amount: amount,
+                    amount: amount.isEmpty ? product.defaultAmount : amount,
                     shopId: hit.shopId,
                     mock: dest == .mock,
                     address: addr,
-                    dU: dU
+                    dU: dU,
+                    product: product
                 )
                 extra += "\n\(placed.message)"
                 if !placed.orderId.isEmpty {

@@ -53,17 +53,17 @@ final class H5Runtime: NSObject, ObservableObject {
         HiddenWebHost.attach(webView)
     }
 
-    func bindIfNeeded(session: Session, cwbStore: CWBStore, forceLoad: Bool = false) {
+    func bindIfNeeded(session: Session, cwbStore: CWBStore, product: Product = .sku741, forceLoad: Bool = false) {
         self.cwbStore = cwbStore
         keepInWindow()
         let shouldLoad = forceLoad || session.isLoggedIn
         guard shouldLoad else { return }
-        let next = session.cookie + "|" + session.token + "|" + session.deviceId
+        let next = session.cookie + "|" + session.token + "|" + session.deviceId + "|" + product.sku
         if fingerprint == next, webView.url != nil { return }
         fingerprint = next
         CookieBridge.apply(session) { [weak self] in
             self?.keepInWindow()
-            self?.webView.load(URLRequest(url: Product.sku741.h5URL))
+            self?.webView.load(URLRequest(url: product.h5URL))
         }
     }
 
@@ -75,7 +75,7 @@ final class H5Runtime: NSObject, ObservableObject {
                 n: BurstClient.clampN(request.n),
                 concurrency: BurstClient.clampC(request.concurrency),
                 intervalMs: BurstClient.clampInterval(request.intervalMs),
-                sku: Product.sku741.sku,
+                sku: request.product.sku,
                 elapsedMs: 0,
                 ok: 0,
                 fail: 1,
@@ -84,8 +84,10 @@ final class H5Runtime: NSObject, ObservableObject {
                 shots: [BurstShot(idx: 0, ok: false, status: 0, ms: 0, body: "", error: err)]
             )
         }
+        let product = request.product
         let plain = RushPlain(
-            amount: request.amount.isEmpty ? "1" : request.amount,
+            amount: request.amount.isEmpty ? product.defaultAmount : request.amount,
+            itemCode: product.sku,
             itemPriorityActId: request.actId,
             deviceId: session.deviceId,
             ydLogId: request.ydLogId,
@@ -96,12 +98,12 @@ final class H5Runtime: NSObject, ObservableObject {
         let body = RushCrypto.rushBody(plain: plain)
         let n = BurstClient.clampN(request.n)
         let payload: [String: Any] = [
-            "url": RushCrypto.officialURL.absoluteString,
+            "url": product.rushURL.absoluteString,
             "body": body,
             "n": n,
             "concurrency": BurstClient.clampC(request.concurrency),
             "intervalMs": BurstClient.clampInterval(request.intervalMs),
-            "headers": H5Fire.pageHeaders(deviceId: session.deviceId),
+            "headers": H5Fire.pageHeaders(deviceId: session.deviceId, product: product),
             "kv": H5Fire.kvPairs(count: n, deviceId: session.deviceId),
         ]
         let t0 = Date()
@@ -122,7 +124,7 @@ final class H5Runtime: NSObject, ObservableObject {
                 n: n,
                 concurrency: BurstClient.clampC(request.concurrency),
                 intervalMs: BurstClient.clampInterval(request.intervalMs),
-                sku: Product.sku741.sku,
+                sku: request.product.sku,
                 elapsedMs: elapsed,
                 ok: 0,
                 fail: 1,
@@ -133,11 +135,11 @@ final class H5Runtime: NSObject, ObservableObject {
         }
     }
 
-    func fetchActId(spu: String = Product.sku741.spu) async -> PurchaseInfo {
+    func fetchActId(product: Product = .sku741) async -> PurchaseInfo {
         if pageError() != nil {
             return PurchaseInfo(ok: false, message: pageError() ?? "H5 未就绪")
         }
-        let bodyObj: [String: Any] = ["hot": true, "spuId": spu]
+        let bodyObj: [String: Any] = ["hot": true, "spuId": product.spu]
         let body = String(data: (try? JSONSerialization.data(withJSONObject: bodyObj)) ?? Data(), encoding: .utf8) ?? ""
         do {
             let json = try await requestJSON(
@@ -146,7 +148,7 @@ final class H5Runtime: NSObject, ObservableObject {
                 body: body,
                 session: nil
             )
-            return CatalogClient.parse(json)
+            return CatalogClient.parse(json, sku: product.sku)
         } catch {
             return PurchaseInfo(ok: false, message: error.localizedDescription)
         }

@@ -40,7 +40,8 @@ enum HeaderBuilder {
         mtV: String,
         cwb: String,
         contentHh: String = "",
-        dU: String = ""
+        dU: String = "",
+        referer: String = HeaderBuilder.referer
     ) -> [(String, String)] {
         let raw: [String: String] = [
             "Content-Web-Bb": cwb,

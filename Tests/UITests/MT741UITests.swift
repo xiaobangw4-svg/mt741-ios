@@ -15,6 +15,12 @@ final class MT741UITests: XCTestCase {
         let title = app.staticTexts["product.title"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(title.label.contains("500ml"))
+        let sku100 = app.staticTexts["product.sku.10193"]
+        XCTAssertTrue(sku100.waitForExistence(timeout: 5), "100ml 商品卡 SKU 未出现")
+        XCTAssertTrue(sku100.label.contains("10193"), "SKU 文案应含 10193，实际：\(sku100.label)")
+        let title100 = app.staticTexts["product.title.10193"]
+        XCTAssertTrue(title100.waitForExistence(timeout: 5))
+        XCTAssertTrue(title100.label.contains("100ml"))
     }
 
     func testBurstMockStartExists() {

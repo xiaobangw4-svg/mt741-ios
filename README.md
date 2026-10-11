@@ -1,6 +1,6 @@
 # MT741
 
-Windows 上写的 iOS App：SKU **741** 飞天 500ml 商品卡 + 短信登录 + 官方 H5。
+Windows 上写的 iOS App：SKU **741** 飞天 500ml、SKU **10193** 飞天 100ml + 短信登录 + 官方 H5。
 
 编译和真机环境都走 GitHub Actions，本机不需要 Xcode。
 
@@ -69,17 +69,19 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 
 ## 免费 Sideloadly 装真机
 
-1. 跑 **Build IPA**，从产物下载 `MT741.ipa`
-2. Windows 安装 [Sideloadly](https://sideloadly.io/)
-3. iPhone 用数据线连电脑，点信任
-4. iOS 16+：设置 → 隐私与安全性 → **开发者模式** 打开并重启
-5. Sideloadly 填免费 Apple ID，拖入 `MT741.ipa`，点 Start
+细节和排障见 [笔记7](笔记7.md)。2026-10-11 已在 iPhone 26.2.1 装通，约 7 天要重签。
+
+1. 跑 **Build IPA**，从产物下载 `MT741.ipa`（也可直接用桌面 `MT741-unsigned\MT741.ipa`）
+2. Windows 安装 [Sideloadly](https://sideloadly.io/) 0.70.1
+3. Clash Verge 必须把 `gsa.apple.com` / `developerservices2.apple.com` / `sideloadly.exe` 走代理，不要走 `apple.com` DIRECT（否则 GSA 503）
+4. iPhone 用数据线连电脑，点信任。iOS 16+：设置 → 隐私与安全性 → **开发者模式**
+5. Sideloadly 填免费 Apple ID，拖入 `MT741.ipa`，bundle `com.local.mt741`，点 **一次** Start
 6. 设置 → 通用 → VPN 与设备管理 → 信任这个开发者
-7. 主屏幕打开 **MT741**。免费签名大约 7 天过期，过期再签一次
+7. 主屏幕打开 **MT741**。免费签名大约 7 天过期，过期按笔记7再签一次
 
 ## App 做什么
 
-- 商品页：741 / `IMTP1000313` / 飞天 500ml
+- 商品页：点选 741 / `IMTP1000313` / 飞天 500ml（默认 1 瓶，`hot/branch/one`）或 10193 / `IMTP1000006` / 飞天 100ml（默认 2 瓶，`hot/branch/five`）
 - 登录页：短信验证码，打 `app.moutai519.com.cn` 的 vcode / login；会话不保存 `idCode`
 - H5 页：WKWebView 打开官方 `h5.moutai519.com.cn`，拦截 XHR/fetch 的 `Content-Web-Bb`
 - 出单：真机登录后等 H5 商品页在后台加载；异步页选 **H5出单**，页内 XHR 走官方 wasm 现签 CWB，2000 后 `compose`/`submit` 出 `orderId`，再 `order/pay` + `requestPay` channel=71 拉起支付宝
@@ -88,7 +90,7 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 
 ## 测试
 
-- 逻辑：SKU 741、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、CWB 拦截脚本、H5 页内开火脚本、purchaseInfoV2 解析、compose 明文
-- UI：启动看到 741 商品卡；切到登录页看到输入框（`waitForExistence`，不用 sleep）
+- 逻辑：SKU 741 / 10193、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、CWB 拦截脚本、H5 页内开火脚本、purchaseInfoV2 解析、compose 明文
+- UI：启动看到 741 和 10193 商品卡；切到登录页看到输入框（`waitForExistence`，不用 sleep）
 
 改完代码只 push，以 CI 报告为准。

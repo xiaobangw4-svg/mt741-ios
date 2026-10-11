@@ -49,4 +49,5 @@ enum AppTheme {
         .environmentObject(SessionStore())
         .environmentObject(CWBStore())
         .environmentObject(H5Runtime())
+        .environmentObject(ProductStore())
 }

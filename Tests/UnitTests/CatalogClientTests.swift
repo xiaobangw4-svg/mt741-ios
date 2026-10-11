@@ -39,6 +39,22 @@ final class CatalogClientTests: XCTestCase {
         XCTAssertEqual(info.skuId, "741")
     }
 
+    func testParsePrefersRequestedSKU10193() {
+        let json: [String: Any] = [
+            "code": 2000,
+            "data": [
+                "purchaseInfoMap": [
+                    "741": ["purchaseInfo": ["itemPriorityActId": 88001, "skuId": "741"]],
+                    "10193": ["purchaseInfo": ["itemPriorityActId": 99002, "skuId": "10193"]],
+                ],
+            ],
+        ]
+        let info = CatalogClient.parse(json, sku: "10193")
+        XCTAssertTrue(info.ok)
+        XCTAssertEqual(info.actId, "99002")
+        XCTAssertEqual(info.skuId, "10193")
+    }
+
     func testParseRejectsNon2000() {
         let info = CatalogClient.parse(["code": 4810, "message": "缺 spuId"])
         XCTAssertFalse(info.ok)

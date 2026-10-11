@@ -50,6 +50,7 @@ struct BurstRequest: Equatable {
     var ydToken: String = ""
     var ydLogId: String = ""
     var target: BurstTarget = .mock
+    var product: Product = .sku741
 }
 
 enum BurstClient {
@@ -73,12 +74,12 @@ enum BurstClient {
             return (400, #"{"code":400,"message":"bad actParam"}"#)
         }
         let sku = String(describing: plain["itemCode"] ?? "")
-        if sku != Product.sku741.sku {
+        if !Product.all.contains(where: { $0.sku == sku }) {
             return (200, #"{"code":4031,"message":"库存不足"}"#)
         }
         let amount = String(describing: plain["amount"] ?? "")
         let actId = String(describing: plain["itemPriorityActId"] ?? "")
-        return (200, #"{"code":2000,"data":{"itemCode":"741","amount":"\#(amount)","itemPriorityActId":"\#(actId)","v":"0003","priorityRecordId":"99","hasGain":true}}"#)
+        return (200, #"{"code":2000,"data":{"itemCode":"\#(sku)","amount":"\#(amount)","itemPriorityActId":"\#(actId)","v":"0003","priorityRecordId":"99","hasGain":true}}"#)
     }
 
     static func burst(request: BurstRequest, session: Session) async -> BurstStats {
@@ -86,8 +87,10 @@ enum BurstClient {
         let c = clampC(request.concurrency)
         let interval = clampInterval(request.intervalMs)
         let token = session.cookie.isEmpty ? session.token : session.cookie
+        let product = request.product
         let plain = RushPlain(
-            amount: request.amount.isEmpty ? "1" : request.amount,
+            amount: request.amount.isEmpty ? product.defaultAmount : request.amount,
+            itemCode: product.sku,
             itemPriorityActId: request.actId,
             deviceId: session.deviceId,
             ydLogId: request.ydLogId,
@@ -113,7 +116,8 @@ enum BurstClient {
                         body: body,
                         session: session,
                         token: token,
-                        cwb: request.cwb
+                        cwb: request.cwb,
+                        product: product
                     )
                     await gate.release()
                     return shot
@@ -135,8 +139,14 @@ enum BurstClient {
         let summary = shots.prefix(4).map { s in
             s.ok ? "#\(s.idx) \(s.status) \(Int(s.ms))ms \(s.body.prefix(80))" : "#\(s.idx) err \(s.error.prefix(80))"
         }.joined(separator: "\n")
+        let statsURL: String
+        if case .official = request.target {
+            statsURL = product.rushURL.absoluteString
+        } else {
+            statsURL = request.target.urlString
+        }
         return BurstStats(
-            url: request.target.urlString,
+            url: statsURL,
             n: n,
             concurrency: c,
             intervalMs: interval,
@@ -156,7 +166,8 @@ enum BurstClient {
         body: String,
         session: Session,
         token: String,
-        cwb: String
+        cwb: String,
+        product: Product
     ) async -> BurstShot {
         let t0 = Date()
         if case .mock = target {
@@ -164,7 +175,12 @@ enum BurstClient {
             let ms = Date().timeIntervalSince(t0) * 1000
             return BurstShot(idx: idx, ok: true, status: status, ms: ms, body: text)
         }
-        let urlString = target.urlString
+        let urlString: String
+        if case .official = target {
+            urlString = product.rushURL.absoluteString
+        } else {
+            urlString = target.urlString
+        }
         guard let url = URL(string: urlString), let scheme = url.scheme, scheme == "http" || scheme == "https" else {
             return BurstShot(idx: idx, ok: false, status: 0, ms: 0, body: "", error: "URL 无效")
         }
@@ -185,7 +201,8 @@ enum BurstClient {
             token: token,
             mtK: mtK,
             mtV: mtV,
-            cwb: cwb
+            cwb: cwb,
+            referer: product.h5URL.absoluteString
         ) {
             request.setValue(value, forHTTPHeaderField: key)
         }

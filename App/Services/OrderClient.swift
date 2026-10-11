@@ -12,11 +12,11 @@ enum OrderClient {
     static let composeURL = URL(string: "https://app.moutai519.com.cn/xhr/front/trade/order/standard/compose")!
     static let submitURL = URL(string: "https://app.moutai519.com.cn/xhr/front/trade/order/standard/submit")!
 
-    static func itemList(amount: String, storeId: String = "0") -> [[String: Any]] {
-        let count = Int(amount) ?? 1
+    static func itemList(amount: String, storeId: String = "0", product: Product = .sku741) -> [[String: Any]] {
+        let count = Int(amount) ?? Int(product.defaultAmount) ?? 1
         return [[
             "storeId": storeId,
-            "spuId": Product.sku741.sku,
+            "spuId": product.sku,
             "count": max(1, count),
         ]]
     }
@@ -26,7 +26,8 @@ enum OrderClient {
         shipAddressId: Int,
         priorityRecordId: Int,
         shopId: String = "",
-        userId: String = ""
+        userId: String = "",
+        product: Product = .sku741
     ) -> [String: Any] {
         var info: [String: Any] = [
             "priorityRecordId": priorityRecordId,
@@ -38,7 +39,7 @@ enum OrderClient {
         }
         var body: [String: Any] = [
             "deliverMethod": -1,
-            "itemList": itemList(amount: amount),
+            "itemList": itemList(amount: amount, product: product),
             "addressInfo": ["shipAddressId": shipAddressId],
             "selfLatitude": "",
             "selfLongitude": "",
@@ -99,7 +100,8 @@ enum OrderClient {
         shopId: String,
         mock: Bool,
         address: [String: Any]? = nil,
-        dU: String = ""
+        dU: String = "",
+        product: Product = .sku741
     ) async -> OrderResult {
         if mock {
             return mockPlace(hit: hit, amount: amount)
@@ -124,7 +126,8 @@ enum OrderClient {
             shipAddressId: shipId,
             priorityRecordId: record,
             shopId: shopId,
-            dU: dU
+            dU: dU,
+            product: product
         )
         var transactionId = compose.transactionId
         var composeData = compose.data
@@ -142,7 +145,8 @@ enum OrderClient {
             composeData: composeData,
             address: address,
             shopId: shopId,
-            dU: dU
+            dU: dU,
+            product: product
         )
         return OrderResult(
             ok: submit.ok,
@@ -166,19 +170,21 @@ enum OrderClient {
         shipAddressId: Int,
         priorityRecordId: Int,
         shopId: String,
-        dU: String
+        dU: String,
+        product: Product
     ) async -> ComposeReply {
         let inner = composeActParam(
             amount: amount,
             shipAddressId: shipAddressId,
             priorityRecordId: priorityRecordId,
             shopId: shopId,
-            userId: session.userId
+            userId: session.userId,
+            product: product
         )
         let body: [String: Any] = [
             "deliverMethod": -1,
             "addressInfo": ["shipAddressId": shipAddressId],
-            "itemList": itemList(amount: amount),
+            "itemList": itemList(amount: amount, product: product),
             "actParam": encryptActParam(inner),
         ]
         do {
@@ -209,7 +215,8 @@ enum OrderClient {
         composeData: [String: Any],
         address: [String: Any],
         shopId: String,
-        dU: String
+        dU: String,
+        product: Product
     ) async -> OrderResult {
         let resolvedShop = shopId.isEmpty ? self.shopId(from: composeData, fallback: "") : shopId
         let pay = payChannel(from: composeData)
@@ -229,7 +236,7 @@ enum OrderClient {
         var inner: [String: Any] = [
             "transactionId": transactionId,
             "deliverMethod": 1,
-            "itemList": itemList(amount: amount),
+            "itemList": itemList(amount: amount, product: product),
             "addressInfo": addressInfo,
             "invoiceSubmitDTO": composeData["invoiceInitVO"] ?? NSNull(),
             "payChannel": pay,
@@ -251,7 +258,7 @@ enum OrderClient {
         let body: [String: Any] = [
             "transactionId": transactionId,
             "deliverMethod": 1,
-            "itemList": itemList(amount: amount),
+            "itemList": itemList(amount: amount, product: product),
             "actParam": encryptActParam(inner),
             "addressInfo": addressInfo,
             "payChannel": pay,

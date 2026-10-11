@@ -5,10 +5,16 @@ struct H5WebView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @EnvironmentObject private var cwbStore: CWBStore
     @EnvironmentObject private var h5Runtime: H5Runtime
+    @EnvironmentObject private var productStore: ProductStore
 
     var body: some View {
         NavigationStack {
-            WebViewContainer(runtime: h5Runtime, session: sessionStore.session, cwbStore: cwbStore)
+            WebViewContainer(
+                runtime: h5Runtime,
+                session: sessionStore.session,
+                cwbStore: cwbStore,
+                product: productStore.selected
+            )
                 .ignoresSafeArea(edges: .bottom)
                 .navigationTitle("官方 H5")
                 .navigationBarTitleDisplayMode(.inline)
@@ -38,14 +44,15 @@ struct WebViewContainer: UIViewRepresentable {
     let runtime: H5Runtime
     let session: Session
     let cwbStore: CWBStore
+    let product: Product
 
     func makeUIView(context: Context) -> WKWebView {
-        runtime.bindIfNeeded(session: session, cwbStore: cwbStore, forceLoad: true)
+        runtime.bindIfNeeded(session: session, cwbStore: cwbStore, product: product, forceLoad: true)
         return runtime.webView
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
-        runtime.bindIfNeeded(session: session, cwbStore: cwbStore, forceLoad: true)
+        runtime.bindIfNeeded(session: session, cwbStore: cwbStore, product: product, forceLoad: true)
     }
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {

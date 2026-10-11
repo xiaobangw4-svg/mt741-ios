@@ -37,11 +37,11 @@ enum CatalogClient {
         return PurchaseInfo(ok: false, message: (json["message"] as? String) ?? "未找到购买信息")
     }
 
-    static func fetch(session: Session, spu: String = Product.sku741.spu) async -> PurchaseInfo {
-        let body: [String: Any] = ["hot": true, "spuId": spu]
+    static func fetch(session: Session, product: Product = .sku741) async -> PurchaseInfo {
+        let body: [String: Any] = ["hot": true, "spuId": product.spu]
         do {
             let json = try await postJSON(url: purchaseInfoURL, body: body, session: session)
-            return parse(json)
+            return parse(json, sku: product.sku)
         } catch {
             return PurchaseInfo(ok: false, message: AuthClient.describe(error))
         }

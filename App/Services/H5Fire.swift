@@ -104,14 +104,14 @@ enum H5Fire {
     })();
     """#
 
-    static func pageHeaders(deviceId: String) -> [String: String] {
+    static func pageHeaders(deviceId: String, product: Product = .sku741) -> [String: String] {
         [
             "MT-Device-ID": deviceId,
             "MT-APP-Version": AuthDigest.appVersion,
             "Sdk-Ver-Bb": HeaderBuilder.sdkVer,
             "MT-Info": HeaderBuilder.mtInfo,
             "Accept-Language": "zh-CN,zh-Hans;q=0.9",
-            "Referer": HeaderBuilder.referer,
+            "Referer": product.h5URL.absoluteString,
         ]
     }
 
@@ -171,7 +171,7 @@ enum H5Fire {
             n: max(shots.count, BurstClient.clampN(request.n)),
             concurrency: BurstClient.clampC(request.concurrency),
             intervalMs: BurstClient.clampInterval(request.intervalMs),
-            sku: Product.sku741.sku,
+            sku: request.product.sku,
             elapsedMs: elapsedMs,
             ok: ok,
             fail: fail,
