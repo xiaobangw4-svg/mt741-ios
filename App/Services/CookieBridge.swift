@@ -6,7 +6,7 @@ enum CookieBridge {
     static let appHost = "app.moutai519.com.cn"
 
     /// Official iOS WebView UA from 2026-10-07 capture: moutaiapp/1.9.14 device-id/<32hex> BS-DVID/<token>.
-    /// Missing those two tokens makes wasm CWB 768 instead of the real-device 800.
+    /// Sideload has no HaoTian BS-DVID harvest; CWB 768 vs 800 is StyleTotal / ext_142 digits.
     static func userAgent(deviceId: String, bsDvid: String = "") -> String {
         let raw = deviceId.isEmpty ? "MT741" : deviceId
         let did = AuthDigest.md5Hex(raw)

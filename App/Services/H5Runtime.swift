@@ -18,16 +18,13 @@ final class H5Runtime: NSObject, ObservableObject {
 
     override init() {
         let content = WKUserContentController()
-        content.addUserScript(WKUserScript(
-            source: CWBHook.javaScript,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: false
-        ))
-        content.addUserScript(WKUserScript(
-            source: H5Fire.javaScript,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: false
-        ))
+        for source in H5PageStart.scripts {
+            content.addUserScript(WKUserScript(
+                source: source,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false
+            ))
+        }
         content.add(proxy, name: CWBHook.handlerName)
         content.add(proxy, name: H5Runtime.jsHandlerName)
         let config = WKWebViewConfiguration()
@@ -361,6 +358,14 @@ final class H5Runtime: NSObject, ObservableObject {
     }
 }
 
+enum H5PageStart {
+    static let scripts = [
+        StyleTotalPatch.javaScript,
+        CWBHook.javaScript,
+        H5Fire.javaScript,
+    ]
+}
+
 enum HiddenWebHost {
     private static let host: UIView = {
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
@@ -439,7 +444,7 @@ extension H5Runtime {
                 self.owner?.pageURL = webView.url?.absoluteString ?? ""
                 self.owner?.ready = self.owner?.isLive ?? false
                 self.owner?.keepInWindow()
-                webView.evaluateJavaScript("window.__mt741hookCWB && window.__mt741hookCWB()") { _, _ in }
+                webView.evaluateJavaScript("window.__mt741hookStyle && window.__mt741hookStyle(); window.__mt741hookCWB && window.__mt741hookCWB()") { _, _ in }
             }
         }
 
