@@ -16,6 +16,8 @@ final class H5Runtime: NSObject, ObservableObject {
     private var pendingJS: [String: CheckedContinuation<Any?, Error>] = [:]
     private let proxy = BridgeProxy()
     fileprivate static let jsHandlerName = "mt741js"
+    private var didInstallPatchedSDK = false
+    private var sdkInstallTask: Task<Void, Never>?
 
     override init() {
         let content = WKUserContentController()
@@ -44,6 +46,34 @@ final class H5Runtime: NSObject, ObservableObject {
         proxy.owner = self
         webView.navigationDelegate = proxy
         HiddenWebHost.attach(webView)
+        sdkInstallTask = Task { [weak self] in
+            await self?.installStyleSDKOnce()
+        }
+    }
+
+    private func installStyleSDK() async {
+        if let sdkInstallTask {
+            await sdkInstallTask.value
+        }
+        if !didInstallPatchedSDK {
+            await installStyleSDKOnce()
+        }
+    }
+
+    private func installStyleSDKOnce() async {
+        if didInstallPatchedSDK { return }
+        guard let source = await StyleTotalSDK.fetchPatched() else { return }
+        if didInstallPatchedSDK { return }
+        guard let rules = await StyleTotalSDK.loadContentRules() else { return }
+        if didInstallPatchedSDK { return }
+        webView.configuration.userContentController.addUserScript(WKUserScript(
+            source: source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true,
+            in: .page
+        ))
+        webView.configuration.userContentController.add(rules)
+        didInstallPatchedSDK = true
     }
 
     var isLive: Bool {
@@ -68,9 +98,13 @@ final class H5Runtime: NSObject, ObservableObject {
         if fingerprint == next, webView.url != nil, !forceLoad { return }
         fingerprint = next
         webView.customUserAgent = CookieBridge.userAgent(deviceId: session.deviceId)
-        CookieBridge.apply(session) { [weak self] in
-            self?.keepInWindow()
-            self?.webView.load(URLRequest(url: product.h5URL))
+        Task { [weak self] in
+            guard let self else { return }
+            await self.installStyleSDK()
+            CookieBridge.apply(session) { [weak self] in
+                self?.keepInWindow()
+                self?.webView.load(URLRequest(url: product.h5URL))
+            }
         }
     }
 
@@ -457,6 +491,7 @@ extension H5Runtime {
                       st.bump = window.__mt741styleBump || 0;
                       st.patched = !!window.__mt741stylePatched;
                       st.gcs = !!window.__mt741gcs;
+                      st.rewritten = !!window.__mt741sdkRewritten;
                       return JSON.stringify(st);
                     })()
                     """

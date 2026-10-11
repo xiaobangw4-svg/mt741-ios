@@ -79,6 +79,44 @@ final class StyleTotalPatchTests: XCTestCase {
             StyleTotalPatch.statusLabel(fromJSON: #"{"patched":true,"wrapped":1,"from":0}"#),
             "Style抬位"
         )
+        XCTAssertEqual(
+            StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true, rewritten: true),
+            "Style抬位"
+        )
+        XCTAssertEqual(
+            StyleTotalPatch.statusLabel(fromJSON: #"{"patched":true,"rewritten":true,"from":1}"#),
+            "Style抬位"
+        )
         XCTAssertEqual(StyleTotalPatch.statusLabel(fromJSON: "nope"), "Style未挂")
+    }
+
+    func testNativeSDKPatchRewritesOfficialLoop() {
+        let src = "prefix;" + StyleTotalPatch.loopFrom + ";suffix"
+        let out = StyleTotalSDK.patch(src)
+        XCTAssertEqual(out.hits, 1)
+        XCTAssertTrue(out.text.contains("_h<10000"))
+        XCTAssertFalse(out.text.contains(StyleTotalPatch.loopFrom))
+        XCTAssertEqual(StyleTotalSDK.patch("no loop here").hits, 0)
+    }
+
+    func testContentRuleBlocksBsH5Scripts() throws {
+        let data = try XCTUnwrap(StyleTotalSDK.contentRuleJSON.data(using: .utf8))
+        let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        XCTAssertEqual(rows.count, 1)
+        let trigger = try XCTUnwrap(rows[0]["trigger"] as? [String: Any])
+        let action = try XCTUnwrap(rows[0]["action"] as? [String: Any])
+        XCTAssertEqual(action["type"] as? String, "block")
+        XCTAssertEqual(trigger["url-filter"] as? String, #".*bs_h5.*\.js"#)
+        let types = (trigger["resource-type"] as? [Any])?.compactMap { $0 as? String }
+        XCTAssertEqual(types, ["script"])
+    }
+
+    func testBootstrapMarksRewrittenAndKeepsPatchedLoop() {
+        let patched = StyleTotalSDK.patch("x" + StyleTotalPatch.loopFrom + "y").text
+        let boot = StyleTotalSDK.bootstrap(patchedSDK: patched, hits: 1)
+        XCTAssertTrue(boot.contains("__mt741sdkRewritten=true"))
+        XCTAssertTrue(boot.contains("_h<10000"))
+        XCTAssertTrue(boot.contains(StyleTotalSDK.remoteURL.absoluteString))
+        XCTAssertTrue(boot.contains("document.createElement('script')"))
     }
 }

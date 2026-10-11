@@ -28,8 +28,8 @@ enum StyleTotalPatch {
         String(hash).count >= 5 ? 800 : 768
     }
 
-    static func statusLabel(wrapped: Int, from: Int, patched: Bool, bump: Int = 0, gcs: Bool = false) -> String {
-        if wrapped > 0 || from > 0 || bump > 0 || gcs { return "Style抬位" }
+    static func statusLabel(wrapped: Int, from: Int, patched: Bool, bump: Int = 0, gcs: Bool = false, rewritten: Bool = false) -> String {
+        if rewritten || wrapped > 0 || from > 0 || bump > 0 || gcs { return "Style抬位" }
         if patched { return "Style脚本在" }
         return "Style未挂"
     }
@@ -50,12 +50,19 @@ enum StyleTotalPatch {
         } else {
             gcs = JSONText.int(obj["gcs"]) == 1
         }
+        let rewritten: Bool
+        if let b = obj["rewritten"] as? Bool {
+            rewritten = b
+        } else {
+            rewritten = JSONText.int(obj["rewritten"]) == 1
+        }
         return statusLabel(
             wrapped: JSONText.int(obj["wrapped"]) ?? 0,
             from: JSONText.int(obj["from"]) ?? 0,
             patched: patched,
             bump: JSONText.int(obj["bump"]) ?? 0,
-            gcs: gcs
+            gcs: gcs,
+            rewritten: rewritten
         )
     }
 
