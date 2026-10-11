@@ -150,7 +150,8 @@ final class H5Runtime: NSObject, ObservableObject {
                 url: CatalogClient.purchaseInfoURL.absoluteString,
                 body: body,
                 session: session,
-                timeoutMs: 8000
+                timeoutMs: 8000,
+                product: product
             )
             let info = CatalogClient.parse(json, sku: product.sku)
             lastProbe = info.message
@@ -221,13 +222,13 @@ final class H5Runtime: NSObject, ObservableObject {
         return nil
     }
 
-    private func requestJSON(method: String, url: String, body: String?, session: Session?, timeoutMs: Int) async throws -> [String: Any] {
+    private func requestJSON(method: String, url: String, body: String?, session: Session?, timeoutMs: Int, product: Product = .sku741) async throws -> [String: Any] {
         var payload: [String: Any] = ["method": method, "url": url, "timeoutMs": timeoutMs]
         if let body, !body.isEmpty {
             payload["body"] = body
         }
         if let session {
-            payload["headers"] = H5Fire.pageHeaders(deviceId: session.deviceId)
+            payload["headers"] = H5Fire.pageHeaders(deviceId: session.deviceId, product: product)
         }
         let result = try await callJS(
             "return await window.__mt741request(payload);",

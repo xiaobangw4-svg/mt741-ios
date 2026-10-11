@@ -245,26 +245,31 @@ struct BurstView: View {
             product: product,
             forceLoad: !h5Runtime.isLive
         )
-        var info: PurchaseInfo
-        var via = "URLSession"
         if sessionStore.session.isLoggedIn {
-            if let err = await h5Runtime.waitUntilLive(seconds: 8) {
-                fetchHint = "H5 未就绪：\(err)，改走 URLSession"
-                log = fetchHint
-                info = await CatalogClient.fetch(session: sessionStore.session, product: product)
-            } else {
-                via = "H5"
-                info = await h5Runtime.fetchActId(product: product, session: sessionStore.session)
-                if !info.ok {
-                    via = "URLSession"
-                    fetchHint = "H5 拉号失败：\(info.message)，改走 URLSession"
-                    log = fetchHint
-                    info = await CatalogClient.fetch(session: sessionStore.session, product: product)
-                }
-            }
-        } else {
-            info = await CatalogClient.fetch(session: sessionStore.session, product: product)
+            _ = await h5Runtime.waitUntilLive(seconds: 8)
         }
+        let pulled = await pullActId(product: product)
+        applyActId(pulled.0, product: product, via: pulled.1)
+    }
+
+    private func pullActId(product: Product) async -> (PurchaseInfo, String) {
+        var via = "URLSession"
+        var info: PurchaseInfo
+        if sessionStore.session.isLoggedIn, h5Runtime.isLive {
+            via = "H5"
+            info = await h5Runtime.fetchActId(product: product, session: sessionStore.session)
+            if info.ok {
+                return (info, via)
+            }
+            via = "URLSession"
+            fetchHint = "H5 拉号失败：\(info.message)，改走 URLSession"
+            log = fetchHint
+        }
+        info = await CatalogClient.fetch(session: sessionStore.session, product: product)
+        return (info, via)
+    }
+
+    private func applyActId(_ info: PurchaseInfo, product: Product, via: String) {
         if info.ok {
             actId = info.actId
             if !info.shopId.isEmpty {
@@ -292,22 +297,29 @@ struct BurstView: View {
             product: product,
             forceLoad: !h5Runtime.isLive
         )
-        if let err = await h5Runtime.waitUntilReady(seconds: 28, product: product, session: sessionStore.session) {
-            log = "商品页未就绪：\(err)"
-            return
+        if let err = await h5Runtime.waitUntilLive(seconds: 12) {
+            log = "H5 未就绪：\(err)，改走 URLSession 拉 actId"
         }
-        log = "2/4 拉取当日 actId… \(cwbStore.lengthText)（真机 rush 是 \(CWBStore.officialLength)）"
-        let info = await h5Runtime.fetchActId(product: product, session: sessionStore.session)
-        if info.ok {
-            actId = info.actId
-            if !info.shopId.isEmpty {
-                shopId = info.shopId
+        log = "2/4 拉取当日 \(product.volume) actId… \(cwbStore.lengthText)"
+        var (info, via) = await pullActId(product: product)
+        if !info.ok {
+            let existing = actId.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !existing.isEmpty {
+                info = PurchaseInfo(
+                    ok: true,
+                    actId: existing,
+                    skuId: product.sku,
+                    shopId: shopId,
+                    message: "使用已填 actId"
+                )
+                via = "已填"
             }
-        } else {
-            log = "actId 拉不到：\(info.message)\n\(cwbStore.lengthText) H5=\(h5Runtime.pageURL)"
+        }
+        applyActId(info, product: product, via: via)
+        if !info.ok {
             return
         }
-        log = "3/4 actId=\(actId) 页内开火 sku=\(product.sku) n=\(n)…"
+        log = "3/4 actId=\(actId) sku=\(product.sku) via \(via) 页内开火 n=\(n)…"
         await executeBurst(.h5Page)
     }
 
