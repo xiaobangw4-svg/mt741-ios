@@ -24,15 +24,17 @@ struct LoginView: View {
                 }
 
                 Section {
-                    Button("发送验证码") { Task { await sendCode() } }
+                    Button(busy ? "发送中…" : "发送验证码") { Task { await sendCode() } }
                         .disabled(busy)
                         .accessibilityIdentifier("login.sendCode")
                     Button("登录") { Task { await submitLogin() } }
                         .disabled(busy)
                         .accessibilityIdentifier("login.submit")
                     Button("新设备") { sessionStore.rotateDevice() }
+                        .disabled(busy)
                         .accessibilityIdentifier("login.newDevice")
                     Button("退出登录", role: .destructive) { sessionStore.logout() }
+                        .disabled(busy)
                         .accessibilityIdentifier("login.logout")
                 }
 
@@ -46,11 +48,9 @@ struct LoginView: View {
                             .font(.footnote.monospaced())
                             .accessibilityIdentifier("login.token")
                     }
-                    if !banner.isEmpty {
-                        Text(banner)
-                            .foregroundStyle(.secondary)
-                            .accessibilityIdentifier("login.banner")
-                    }
+                    Text(banner.isEmpty ? "就绪" : banner)
+                        .foregroundStyle(busy ? AppTheme.gold : .secondary)
+                        .accessibilityIdentifier("login.banner")
                 }
             }
             .navigationTitle("登录")
@@ -59,12 +59,12 @@ struct LoginView: View {
                     mobile = sessionStore.session.mobile
                 }
             }
-            .disabled(busy)
         }
     }
 
     private func sendCode() async {
         busy = true
+        banner = "正在发送验证码…"
         defer { busy = false }
         let result = await AuthClient().sendVCode(mobile: mobile, deviceId: sessionStore.session.deviceId)
         banner = result.message

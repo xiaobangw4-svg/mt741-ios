@@ -41,8 +41,20 @@ enum AuthDigest {
         randCharset.randomElement() ?? "0"
     }
 
+    static func normalizeMobile(_ raw: String) -> String {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        s = s.replacingOccurrences(of: " ", with: "")
+        s = s.replacingOccurrences(of: "-", with: "")
+        if s.hasPrefix("+86") {
+            s = String(s.dropFirst(3))
+        } else if s.hasPrefix("86"), s.count == 13 {
+            s = String(s.dropFirst(2))
+        }
+        return s
+    }
+
     static func validateMobile(_ mobile: String) -> String? {
-        let trimmed = mobile.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = normalizeMobile(mobile)
         if trimmed.count != 11 || trimmed.contains(where: { !$0.isNumber }) {
             return "手机号须为 11 位数字"
         }

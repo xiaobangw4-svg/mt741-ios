@@ -18,7 +18,15 @@ struct AuthClient {
     static let vcodeURL = URL(string: "https://app.moutai519.com.cn/xhr/front/user/register/vcode")!
     static let loginURL = URL(string: "https://app.moutai519.com.cn/xhr/front/user/register/login")!
 
-    init(session: URLSession = .shared, nowMillis: @escaping () -> Int64 = {
+    static func makeSession() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 12
+        config.timeoutIntervalForResource = 15
+        config.waitsForConnectivity = false
+        return URLSession(configuration: config)
+    }
+
+    init(session: URLSession = AuthClient.makeSession(), nowMillis: @escaping () -> Int64 = {
         Int64(Date().timeIntervalSince1970 * 1000)
     }) {
         self.session = session
@@ -26,6 +34,7 @@ struct AuthClient {
     }
 
     func sendVCode(mobile: String, deviceId: String) async -> LoginResult {
+        let mobile = AuthDigest.normalizeMobile(mobile)
         if let err = AuthDigest.validateMobile(mobile) {
             return LoginResult(ok: false, message: err, deviceId: deviceId)
         }
@@ -37,18 +46,19 @@ struct AuthClient {
         ]
         do {
             let json = try await postJSON(url: Self.vcodeURL, body: body, deviceId: deviceId, includeMTKV: false)
-            let code = json["code"] as? Int
+            let code = Self.jsonCode(json)
             if code == 2000 {
                 return LoginResult(ok: true, message: "验证码已发送", mobile: mobile, deviceId: deviceId)
             }
-            let msg = (json["message"] as? String) ?? "code=\(code ?? -1)"
+            let msg = (json["message"] as? String) ?? "code=\(code.map(String.init) ?? "nil")"
             return LoginResult(ok: false, message: msg, mobile: mobile, deviceId: deviceId)
         } catch {
-            return LoginResult(ok: false, message: error.localizedDescription, mobile: mobile, deviceId: deviceId)
+            return LoginResult(ok: false, message: Self.describe(error), mobile: mobile, deviceId: deviceId)
         }
     }
 
     func login(mobile: String, vcode: String, deviceId: String) async -> LoginResult {
+        let mobile = AuthDigest.normalizeMobile(mobile)
         if let err = AuthDigest.validateMobile(mobile) {
             return LoginResult(ok: false, message: err, deviceId: deviceId)
         }
@@ -58,14 +68,14 @@ struct AuthClient {
         let body: [String: String] = [
             "ydToken": "",
             "mobile": mobile,
-            "vCode": vcode,
+            "vCode": vcode.trimmingCharacters(in: .whitespacesAndNewlines),
             "ydLogId": "",
         ]
         do {
             let json = try await postJSON(url: Self.loginURL, body: body, deviceId: deviceId, includeMTKV: true)
-            let code = json["code"] as? Int
+            let code = Self.jsonCode(json)
             if code != 2000 {
-                let msg = (json["message"] as? String) ?? "code=\(code ?? -1)"
+                let msg = (json["message"] as? String) ?? "code=\(code.map(String.init) ?? "nil")"
                 return LoginResult(ok: false, message: msg, mobile: mobile, deviceId: deviceId)
             }
             let data = json["data"] as? [String: Any] ?? [:]
@@ -83,12 +93,31 @@ struct AuthClient {
                 deviceId: deviceId
             )
         } catch {
-            return LoginResult(ok: false, message: error.localizedDescription, mobile: mobile, deviceId: deviceId)
+            return LoginResult(ok: false, message: Self.describe(error), mobile: mobile, deviceId: deviceId)
         }
+    }
+
+    static func jsonCode(_ json: [String: Any]) -> Int? {
+        if let value = json["code"] as? Int { return value }
+        if let value = json["code"] as? NSNumber { return value.intValue }
+        if let value = json["code"] as? String { return Int(value) }
+        return nil
+    }
+
+    static func describe(_ error: Error) -> String {
+        let ns = error as NSError
+        if ns.domain == NSURLErrorDomain, ns.code == NSURLErrorTimedOut {
+            return "连接超时：当前是 GitHub 美国模拟器，打不到国内短信接口"
+        }
+        if ns.domain == NSURLErrorDomain {
+            return "网络失败：\(ns.localizedDescription)"
+        }
+        return error.localizedDescription
     }
 
     private func postJSON(url: URL, body: [String: String], deviceId: String, includeMTKV: Bool) async throws -> [String: Any] {
         var request = URLRequest(url: url)
+        request.timeoutInterval = 12
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("*/*", forHTTPHeaderField: "Accept")

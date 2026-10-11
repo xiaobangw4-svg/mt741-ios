@@ -24,6 +24,8 @@ final class AuthDigestTests: XCTestCase {
         XCTAssertEqual(AuthDigest.validateMobile("123"), "手机号须为 11 位数字")
         XCTAssertEqual(AuthDigest.validateMobile("abcdefghijk"), "手机号须为 11 位数字")
         XCTAssertNil(AuthDigest.validateMobile("19000811875"))
+        XCTAssertNil(AuthDigest.validateMobile("+86 190 0081 1875"))
+        XCTAssertEqual(AuthDigest.normalizeMobile("+8619000811875"), "19000811875")
     }
 
     func testValidateVCode() {
