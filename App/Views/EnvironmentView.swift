@@ -15,6 +15,9 @@ struct EnvironmentView: View {
                 }
                 Section("已接入") {
                     row("短信登录", "app.moutai519.com.cn vcode/login")
+                    row("实名", "APP getRealNameAuthInfo / realNameAuth，身份证不落盘")
+                    row("找回身份证", "H5 getFindIdentityInfo / findIdentity")
+                    row("注销", "APP register/cancel，需重复手机号确认，不可逆")
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
                     row("异步请求", "n≤64，并发 1-16，间隔 0-2000ms")
                     row("易盾", "真机滑块 captchaId 741 → verify/code 或 ydToken 重发")

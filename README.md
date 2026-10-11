@@ -82,7 +82,7 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 ## App 做什么
 
 - 商品页：点选 741 / `IMTP1000313` / 飞天 500ml（默认 1 瓶，`hot/branch/one`）或 10193 / `IMTP1000006` / 飞天 100ml（默认 2 瓶，`hot/branch/five`）
-- 登录页：短信验证码，打 `app.moutai519.com.cn` 的 vcode / login；会话不保存 `idCode`
+- 登录页：短信验证码，打 `app.moutai519.com.cn` 的 vcode / login；实名、找回身份证、注销账号。会话不保存 `idCode`，身份证不落盘
 - H5 页：WKWebView 打开官方 `h5.moutai519.com.cn`，拦截 XHR/fetch 的 `Content-Web-Bb`
 - 出单：真机登录后等 H5 商品页在后台加载；异步页选 **H5出单**，页内 XHR 走官方 wasm 现签 CWB，2000 后 `compose`/`submit` 出 `orderId`，再 `order/pay` + `requestPay` channel=71 拉起支付宝
 
@@ -90,7 +90,7 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 
 ## 测试
 
-- 逻辑：SKU 741 / 10193、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、CWB 拦截脚本、H5 页内开火脚本、purchaseInfoV2 解析、compose 明文
-- UI：启动看到 741 和 10193 商品卡；切到登录页看到输入框（`waitForExistence`，不用 sleep）
+- 逻辑：SKU 741 / 10193、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、实名/找回身份证/注销解析、CWB 拦截脚本、H5 页内开火脚本、purchaseInfoV2 解析、compose 明文
+- UI：启动看到 741 和 10193 商品卡；切到登录页看到输入框、实名和注销按钮（`waitForExistence`，不用 sleep）
 
 改完代码只 push，以 CI 报告为准。

@@ -56,7 +56,7 @@ final class MT741UITests: XCTestCase {
     }
 
     private func reveal(_ app: XCUIApplication, _ element: XCUIElement) {
-        for _ in 0..<3 where !element.exists {
+        for _ in 0..<8 where !element.exists {
             app.swipeUp()
         }
     }
@@ -71,5 +71,14 @@ final class MT741UITests: XCTestCase {
         XCTAssertTrue(app.buttons["login.sendCode"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["login.status"].waitForExistence(timeout: 5))
+        reveal(app, app.buttons["login.realNameSubmit"])
+        XCTAssertTrue(app.buttons["login.realNameQuery"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["login.realNameSubmit"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["login.findQuery"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["login.findSubmit"].waitForExistence(timeout: 5))
+        reveal(app, app.buttons["login.cancelAccount"])
+        XCTAssertTrue(app.buttons["login.cancelAccount"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["login.idName"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.secureTextFields["login.idNo"].waitForExistence(timeout: 5))
     }
 }
