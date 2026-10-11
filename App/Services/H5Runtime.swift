@@ -12,7 +12,9 @@ final class H5Runtime: NSObject, ObservableObject {
     @Published var lastProbe = ""
 
     private var fingerprint = ""
+    private var pendingJS: [String: CheckedContinuation<Any?, Error>] = [:]
     private let proxy = BridgeProxy()
+    fileprivate static let jsHandlerName = "mt741js"
 
     override init() {
         let content = WKUserContentController()
@@ -26,6 +28,8 @@ final class H5Runtime: NSObject, ObservableObject {
             injectionTime: .atDocumentStart,
             forMainFrameOnly: false
         ))
+        content.add(proxy, name: CWBHook.handlerName)
+        content.add(proxy, name: H5Runtime.jsHandlerName)
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController = content
@@ -36,7 +40,6 @@ final class H5Runtime: NSObject, ObservableObject {
         webView = view
         super.init()
         proxy.owner = self
-        content.add(proxy, name: CWBHook.handlerName)
         webView.navigationDelegate = proxy
         HiddenWebHost.attach(webView)
     }
@@ -241,20 +244,86 @@ final class H5Runtime: NSObject, ObservableObject {
     }
 
     private func callJS(_ body: String, arguments: [String: Any] = [:]) async throws -> Any? {
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Any?, Error>) in
-            webView.callAsyncJavaScript(
-                body,
-                arguments: arguments,
-                in: nil,
-                in: WKContentWorld.page
-            ) { (value: Any?, error: Error?) in
-                if let error {
-                    cont.resume(throwing: error)
-                } else {
-                    cont.resume(returning: value)
+        let id = UUID().uuidString
+        let argsJSON = jsonAtom(arguments)
+        let bindings = arguments.keys.map { key in
+            "var \(key) = args[\(jsonAtom(key))];"
+        }.joined(separator: "\n")
+        let script = """
+        (function() {
+          var id = \(jsonAtom(id));
+          var args = \(argsJSON);
+          Promise.resolve().then(async function() {
+            \(bindings)
+            \(body)
+          }).then(function(value) {
+            var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mt741js;
+            if (!h) return;
+            try { h.postMessage({id: id, ok: true, value: value}); }
+            catch (e) {
+              try { h.postMessage({id: id, ok: true, json: JSON.stringify(value)}); }
+              catch (e2) { h.postMessage({id: id, ok: false, error: String(e2)}); }
+            }
+          }).catch(function(e) {
+            var h = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mt741js;
+            if (h) h.postMessage({id: id, ok: false, error: String(e)});
+          });
+        })();
+        """
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Any?, Error>) in
+            pendingJS[id] = cont
+            webView.evaluateJavaScript(script) { [weak self] _, error in
+                guard let error else { return }
+                DispatchQueue.main.async {
+                    self?.failJS(id: id, message: error.localizedDescription)
                 }
             }
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 90_000_000_000)
+                self?.failJS(id: id, message: "H5 JS 超时")
+            }
         }
+    }
+
+    private func jsonAtom(_ value: Any) -> String {
+        if JSONSerialization.isValidJSONObject(value),
+           let data = try? JSONSerialization.data(withJSONObject: value),
+           let text = String(data: data, encoding: .utf8) {
+            return text
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: [value]),
+           let text = String(data: data, encoding: .utf8), text.count >= 2 {
+            return String(text.dropFirst().dropLast())
+        }
+        return "null"
+    }
+
+    fileprivate func finishJS(_ body: Any) {
+        guard let dict = body as? [String: Any] else { return }
+        let id = JSONText.string(dict["id"])
+        guard !id.isEmpty, let cont = pendingJS.removeValue(forKey: id) else { return }
+        let ok = (dict["ok"] as? Bool) == true || (dict["ok"] as? NSNumber)?.boolValue == true
+        if ok {
+            if let json = dict["json"] as? String,
+               let data = json.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data) {
+                cont.resume(returning: obj)
+            } else {
+                cont.resume(returning: dict["value"])
+            }
+            return
+        }
+        let err = JSONText.string(dict["error"])
+        cont.resume(throwing: NSError(domain: "H5", code: 0, userInfo: [
+            NSLocalizedDescriptionKey: err.isEmpty ? "H5 JS 失败" : err,
+        ]))
+    }
+
+    fileprivate func failJS(id: String, message: String) {
+        guard let cont = pendingJS.removeValue(forKey: id) else { return }
+        cont.resume(throwing: NSError(domain: "H5", code: 0, userInfo: [
+            NSLocalizedDescriptionKey: message,
+        ]))
     }
 
     private func reinstallHooks() {
@@ -337,8 +406,14 @@ extension H5Runtime {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            guard message.name == CWBHook.handlerName else { return }
             let body = message.body
+            if message.name == H5Runtime.jsHandlerName {
+                DispatchQueue.main.async {
+                    self.owner?.finishJS(body)
+                }
+                return
+            }
+            guard message.name == CWBHook.handlerName else { return }
             DispatchQueue.main.async {
                 self.owner?.cwbStore?.ingest(body)
             }
