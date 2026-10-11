@@ -31,16 +31,23 @@ enum PayClient {
         }
     }
 
-    static func requestPay(tn: String, channel: String = channel71) async -> (message: String, payURL: URL?) {
+    static func requestPaySalesId(orderId: String, tn: String) -> String {
+        let oid = orderId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !oid.isEmpty { return oid }
+        return tn.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func requestPay(tn: String, orderId: String = "", channel: String = channel71) async -> (message: String, payURL: URL?) {
         let tn = tn.trimmingCharacters(in: .whitespacesAndNewlines)
         if tn.isEmpty { return ("TN 为空", nil) }
+        let salesId = requestPaySalesId(orderId: orderId, tn: tn)
         let ts = String(Int64(Date().timeIntervalSince1970 * 1000))
         let inJson = "{\"PAY_CHANNEL\":\"\(channel)\",\"TN\":\"\(tn)\"}"
         let sec = securityID(tn: tn, ts: ts)
         let cipher = SM4.encryptECBBase64(ts, key: sm4Key)
         var comps = URLComponents(url: requestPayURL, resolvingAgainstBaseURL: false)!
         comps.queryItems = [
-            URLQueryItem(name: "salesId", value: tn),
+            URLQueryItem(name: "salesId", value: salesId),
             URLQueryItem(name: "payChannel", value: channel),
         ]
         var request = URLRequest(url: comps.url ?? requestPayURL)

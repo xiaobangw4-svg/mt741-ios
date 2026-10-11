@@ -25,7 +25,8 @@ enum OrderClient {
         amount: String,
         shipAddressId: Int,
         priorityRecordId: Int,
-        shopId: String = ""
+        shopId: String = "",
+        userId: String = ""
     ) -> [String: Any] {
         var info: [String: Any] = [
             "priorityRecordId": priorityRecordId,
@@ -44,6 +45,9 @@ enum OrderClient {
         ]
         if !info.isEmpty {
             body["userPriorityInfo"] = info
+        }
+        if !userId.isEmpty {
+            body["userId"] = userId
         }
         return body
     }
@@ -93,7 +97,9 @@ enum OrderClient {
         hit: RushHit,
         amount: String,
         shopId: String,
-        mock: Bool
+        mock: Bool,
+        address: [String: Any]? = nil,
+        dU: String = ""
     ) async -> OrderResult {
         if mock {
             return mockPlace(hit: hit, amount: amount)
@@ -102,15 +108,23 @@ enum OrderClient {
         if record == 0 {
             return OrderResult(ok: false, message: "没有 priorityRecordId，无法组单")
         }
-        let addrPack = await CatalogClient.fetchAddress(session: session)
-        guard let address = addrPack.address, let shipId = JSONText.int(address["shipAddressId"]) else {
-            return OrderResult(ok: false, message: "组单失败：\(addrPack.message)")
+        var resolvedAddress = address
+        var addrMsg = ""
+        if resolvedAddress == nil {
+            let addrPack = await CatalogClient.fetchAddress(session: session)
+            resolvedAddress = addrPack.address
+            addrMsg = addrPack.message
+        }
+        guard let address = resolvedAddress, let shipId = JSONText.int(address["shipAddressId"]) else {
+            return OrderResult(ok: false, message: "组单失败：\(addrMsg.isEmpty ? "无收货地址" : addrMsg)")
         }
         let compose = await compose(
             session: session,
             amount: amount,
             shipAddressId: shipId,
-            priorityRecordId: record
+            priorityRecordId: record,
+            shopId: shopId,
+            dU: dU
         )
         var transactionId = compose.transactionId
         var composeData = compose.data
@@ -127,7 +141,8 @@ enum OrderClient {
             transactionId: transactionId,
             composeData: composeData,
             address: address,
-            shopId: shopId
+            shopId: shopId,
+            dU: dU
         )
         return OrderResult(
             ok: submit.ok,
@@ -149,12 +164,16 @@ enum OrderClient {
         session: Session,
         amount: String,
         shipAddressId: Int,
-        priorityRecordId: Int
+        priorityRecordId: Int,
+        shopId: String,
+        dU: String
     ) async -> ComposeReply {
         let inner = composeActParam(
             amount: amount,
             shipAddressId: shipAddressId,
-            priorityRecordId: priorityRecordId
+            priorityRecordId: priorityRecordId,
+            shopId: shopId,
+            userId: session.userId
         )
         let body: [String: Any] = [
             "deliverMethod": -1,
@@ -163,7 +182,7 @@ enum OrderClient {
             "actParam": encryptActParam(inner),
         ]
         do {
-            let json = try await appPost(url: composeURL, body: body, session: session)
+            let json = try await appPost(url: composeURL, body: body, session: session, dU: dU)
             let code = AuthClient.jsonCode(json)
             let data = JSONText.object(json["data"])
             let tx = JSONText.string(data["transactionId"])
@@ -189,7 +208,8 @@ enum OrderClient {
         transactionId: String,
         composeData: [String: Any],
         address: [String: Any],
-        shopId: String
+        shopId: String,
+        dU: String
     ) async -> OrderResult {
         let resolvedShop = shopId.isEmpty ? self.shopId(from: composeData, fallback: "") : shopId
         let pay = payChannel(from: composeData)
@@ -206,7 +226,7 @@ enum OrderClient {
         let deliverMethodList: Any = composeData["deliverMethodList"] ?? [[
             "type": 1, "desc": "快递配送", "notes": "", "checked": false,
         ]]
-        let inner: [String: Any] = [
+        var inner: [String: Any] = [
             "transactionId": transactionId,
             "deliverMethod": 1,
             "itemList": itemList(amount: amount),
@@ -225,6 +245,9 @@ enum OrderClient {
             "sourceId": JSONText.string(composeData["sourceId"]),
             "ignorePromInconsistent": false,
         ]
+        if !session.userId.isEmpty {
+            inner["userId"] = session.userId
+        }
         let body: [String: Any] = [
             "transactionId": transactionId,
             "deliverMethod": 1,
@@ -237,7 +260,7 @@ enum OrderClient {
             "sourceId": JSONText.string(composeData["sourceId"]),
         ]
         do {
-            let json = try await appPost(url: submitURL, body: body, session: session)
+            let json = try await appPost(url: submitURL, body: body, session: session, dU: dU)
             let code = AuthClient.jsonCode(json)
             let orderId = parseOrderId(json)
             if code == 2000, !orderId.isEmpty {
@@ -262,7 +285,7 @@ enum OrderClient {
         return "1_\(a)_\(ts)_\(b)_\(userId)"
     }
 
-    private static func appPost(url: URL, body: [String: Any], session: Session) async throws -> [String: Any] {
+    private static func appPost(url: URL, body: [String: Any], session: Session, dU: String = "") async throws -> [String: Any] {
         let token = session.cookie.isEmpty ? session.token : session.cookie
         let mtK = String(Int64(Date().timeIntervalSince1970 * 1000))
         let mtV = AuthDigest.mtV(
@@ -289,8 +312,9 @@ enum OrderClient {
         if !session.token.isEmpty {
             request.setValue(session.token, forHTTPHeaderField: "MT-Token")
         }
-        if !token.isEmpty {
-            request.setValue("MT-Token-Wap=\(token); MT-Device-ID-Wap=\(session.deviceId)", forHTTPHeaderField: "Cookie")
+        let cookie = HeaderBuilder.cookie(deviceId: session.deviceId, token: token, dU: dU)
+        if !cookie.isEmpty {
+            request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
         let (data, resp) = try await URLSession.shared.data(for: request)
         if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {

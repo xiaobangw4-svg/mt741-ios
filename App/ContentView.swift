@@ -48,4 +48,5 @@ enum AppTheme {
     ContentView()
         .environmentObject(SessionStore())
         .environmentObject(CWBStore())
+        .environmentObject(H5Runtime())
 }

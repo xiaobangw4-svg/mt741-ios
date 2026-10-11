@@ -23,7 +23,13 @@ final class OrderClientTests: XCTestCase {
     }
 
     func testEncryptActParamRoundTripWithAesKey() {
-        let inner = OrderClient.composeActParam(amount: "1", shipAddressId: 1, priorityRecordId: 99)
+        let inner = OrderClient.composeActParam(
+            amount: "1",
+            shipAddressId: 1,
+            priorityRecordId: 99,
+            shopId: "2333",
+            userId: "10001"
+        )
         let enc = OrderClient.encryptActParam(inner)
         XCTAssertFalse(enc.isEmpty)
         XCTAssertFalse(enc.contains("\n"))
@@ -31,6 +37,8 @@ final class OrderClientTests: XCTestCase {
         XCTAssertTrue(pt.contains("\"deliverMethod\":-1"))
         XCTAssertTrue(pt.contains("\"spuId\":\"741\""))
         XCTAssertTrue(pt.contains("\"priorityRecordId\":99"))
+        XCTAssertTrue(pt.contains("\"shopId\":\"2333\""))
+        XCTAssertTrue(pt.contains("\"userId\":\"10001\""))
     }
 
     func testOrderMIMEWrapAndRoundTrip() {

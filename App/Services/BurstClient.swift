@@ -27,12 +27,14 @@ enum BurstTarget: Equatable {
     case mock
     case custom(String)
     case official
+    case h5Page
 
     var urlString: String {
         switch self {
         case .mock: return "mock://local/rush"
         case .custom(let s): return s
         case .official: return RushCrypto.officialURL.absoluteString
+        case .h5Page: return "h5://webview/rushPurchase"
         }
     }
 }

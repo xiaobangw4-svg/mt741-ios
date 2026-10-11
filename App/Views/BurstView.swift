@@ -3,6 +3,7 @@ import SwiftUI
 struct BurstView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @EnvironmentObject private var cwbStore: CWBStore
+    @EnvironmentObject private var h5Runtime: H5Runtime
     @State private var actId = "103783"
     @State private var amount = "1"
     @State private var n = "8"
@@ -15,9 +16,10 @@ struct BurstView: View {
     @State private var shopId = ""
     @State private var ydToken = ""
     @State private var ydLogId = ""
-    @State private var log = "默认本机回放。官方地址要显式选「官方 H5」。"
+    @State private var log = "默认本机回放。真机出单：登录 → 等 H5 商品页起来 → 选「H5出单」。"
     @State private var busy = false
     @State private var confirmOfficial = false
+    @State private var confirmH5 = false
     @State private var showYidun = false
     @State private var showPay = false
     @State private var lastHit = RushHit()
@@ -75,9 +77,10 @@ struct BurstView: View {
                 }
                 Section("目标") {
                     Picker("目标", selection: $target) {
-                        Text("本机回放").tag("mock")
+                        Text("本机").tag("mock")
+                        Text("H5出单").tag("h5page")
+                        Text("直连").tag("official")
                         Text("自定义").tag("custom")
-                        Text("官方 H5").tag("official")
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("burst.target")
@@ -119,11 +122,17 @@ struct BurstView: View {
                     await fetchActId()
                 }
             }
-            .alert("打官方地址", isPresented: $confirmOfficial) {
+            .alert("H5 页内出单", isPresented: $confirmH5) {
                 Button("取消", role: .cancel) {}
-                Button("继续") { Task { await runBurst(BurstTarget.official) } }
+                Button("开火") { Task { await runBurst(.h5Page) } }
             } message: {
-                Text("会从这台 iPhone 并发 POST 官方抢购接口。没 CWB 多半 429。")
+                Text("在后台挂着的官方商品页里用 XHR 抢 741，页内 wasm 现签 CWB。命中后自动组单、order/pay、拉起支付宝。")
+            }
+            .alert("直连官方地址", isPresented: $confirmOfficial) {
+                Button("取消", role: .cancel) {}
+                Button("继续") { Task { await runBurst(.official) } }
+            } message: {
+                Text("URLSession 直连，没有页内 wasm 现签。真机出单请用「H5出单」。")
             }
             .sheet(isPresented: $showYidun) {
                 YidunSheet(
@@ -136,6 +145,7 @@ struct BurstView: View {
             .sheet(isPresented: $showPay) {
                 PaySheet(
                     session: sessionStore.session,
+                    autoStart: !lastHit.orderId.isEmpty,
                     orderId: lastHit.orderId,
                     tn: ""
                 )
@@ -145,6 +155,8 @@ struct BurstView: View {
 
     private func start() {
         switch target {
+        case "h5page":
+            confirmH5 = true
         case "official":
             confirmOfficial = true
         case "custom":
@@ -171,17 +183,30 @@ struct BurstView: View {
     }
 
     private var cwbStatus: String {
+        if target == "h5page" {
+            if h5Runtime.ready {
+                return cwbStore.cwb.isEmpty
+                    ? "H5 页已加载。开火时由页内 wasm 现签，不用粘贴。"
+                    : "H5 已捕获 CWB \(cwbStore.cwb.count) 字，页内开火会再签一次。"
+            }
+            return "H5 商品页还没好。先登录，必要时打开「H5」等到有 CWB。"
+        }
         if !cwb.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "使用粘贴的 CWB \(cwb.count) 字"
         }
         if !cwbStore.cwb.isEmpty {
             return "使用 H5 捕获的 CWB \(cwbStore.cwb.count) 字"
         }
-        return "还没有 CWB。先打开「H5」逛商品页，或粘贴。"
+        return "还没有 CWB。出单请选「H5出单」并先打开 H5。"
     }
 
     private func fetchActId() async {
-        let info = await CatalogClient.fetch(session: sessionStore.session)
+        let info: PurchaseInfo
+        if h5Runtime.ready {
+            info = await h5Runtime.fetchActId()
+        } else {
+            info = await CatalogClient.fetch(session: sessionStore.session)
+        }
         if info.ok {
             actId = info.actId
             if !info.shopId.isEmpty {
@@ -190,12 +215,16 @@ struct BurstView: View {
         }
         if !busy {
             log = info.ok
-                ? "purchaseInfoV2 actId=\(info.actId) sku=\(info.skuId)"
+                ? "purchaseInfoV2 actId=\(info.actId) sku=\(info.skuId) via=\(h5Runtime.ready ? "H5" : "URLSession")"
                 : "purchaseInfoV2 \(info.message)"
         }
     }
 
     private func runBurst(_ dest: BurstTarget) async {
+        if dest == .h5Page, !sessionStore.session.isLoggedIn {
+            log = "先登录再选「H5出单」。登录后 App 会在后台加载官方 741 商品页。"
+            return
+        }
         busy = true
         defer { busy = false }
         let req = BurstRequest(
@@ -211,7 +240,12 @@ struct BurstView: View {
             target: dest
         )
         log = "开始 \(dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=741"
-        let stats = await BurstClient.burst(request: req, session: sessionStore.session)
+        let stats: BurstStats
+        if dest == .h5Page {
+            stats = await h5Runtime.fire(request: req, session: sessionStore.session)
+        } else {
+            stats = await BurstClient.burst(request: req, session: sessionStore.session)
+        }
         var extra = ""
         if var hit = RushHit.best(from: stats.shots) {
             extra = "\n业务 code=\(hit.code.map(String.init) ?? "-") \(hit.message) record=\(hit.priorityRecordId) order=\(hit.orderId)"
@@ -221,12 +255,22 @@ struct BurstView: View {
                 shopId = hit.shopId
             }
             if hit.canCompose, hit.orderId.isEmpty {
+                var addr: [String: Any]?
+                var dU = ""
+                if dest == .h5Page || h5Runtime.ready {
+                    let pack = await h5Runtime.fetchAddress()
+                    addr = pack.address
+                    extra += "\n\(pack.message)"
+                    dU = await h5Runtime.cookieValue("_d_u")
+                }
                 let placed = await OrderClient.place(
                     session: sessionStore.session,
                     hit: hit,
                     amount: amount,
                     shopId: hit.shopId,
-                    mock: dest == .mock
+                    mock: dest == .mock,
+                    address: addr,
+                    dU: dU
                 )
                 extra += "\n\(placed.message)"
                 if !placed.orderId.isEmpty {
