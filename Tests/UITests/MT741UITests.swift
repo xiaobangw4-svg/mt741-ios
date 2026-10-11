@@ -23,6 +23,8 @@ final class MT741UITests: XCTestCase {
         let tab = app.tabBars.buttons["异步"]
         XCTAssertTrue(tab.waitForExistence(timeout: 10))
         tab.tap()
+        XCTAssertTrue(app.buttons["burst.yidun"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["burst.pay"].waitForExistence(timeout: 5))
         let start = app.buttons["burst.start"]
         XCTAssertTrue(start.waitForExistence(timeout: 8))
         start.tap()

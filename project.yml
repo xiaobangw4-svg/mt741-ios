@@ -32,6 +32,11 @@ targets:
         INFOPLIST_KEY_NSAppTransportSecurity_AllowsArbitraryLoads: NO
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      properties:
+        LSApplicationQueriesSchemes:
+          - alipays
+          - alipay
     scheme:
       testTargets:
         - MT741Tests

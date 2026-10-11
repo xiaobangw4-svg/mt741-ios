@@ -11,9 +11,14 @@ struct BurstView: View {
     @State private var target = "mock"
     @State private var customURL = ""
     @State private var cwb = ""
+    @State private var ydToken = ""
+    @State private var ydLogId = ""
     @State private var log = "默认本机回放。官方地址要显式选「官方 H5」。"
     @State private var busy = false
     @State private var confirmOfficial = false
+    @State private var showYidun = false
+    @State private var showPay = false
+    @State private var lastHit = RushHit()
 
     var body: some View {
         NavigationStack {
@@ -69,6 +74,18 @@ struct BurstView: View {
                         .textInputAutocapitalization(.never)
                         .accessibilityIdentifier("burst.cwb")
                 }
+                Section("易盾 / 支付") {
+                    TextField("ydToken / validate", text: $ydToken)
+                        .textInputAutocapitalization(.never)
+                        .accessibilityIdentifier("burst.ydToken")
+                    TextField("ydLogId", text: $ydLogId)
+                        .textInputAutocapitalization(.never)
+                        .accessibilityIdentifier("burst.ydLogId")
+                    Button("打开易盾滑块") { showYidun = true }
+                        .accessibilityIdentifier("burst.yidun")
+                    Button("打开支付") { showPay = true }
+                        .accessibilityIdentifier("burst.pay")
+                }
                 Section {
                     Button(busy ? "请求中…" : "开始异步请求") { start() }
                         .disabled(busy || actId.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -90,6 +107,21 @@ struct BurstView: View {
                 Button("继续") { Task { await runBurst(BurstTarget.official) } }
             } message: {
                 Text("会从这台 iPhone 并发 POST 官方抢购接口。没 CWB 多半 429。")
+            }
+            .sheet(isPresented: $showYidun) {
+                YidunSheet(
+                    session: sessionStore.session,
+                    priorityRecordId: lastHit.priorityRecordId
+                ) { value in
+                    ydToken = value
+                }
+            }
+            .sheet(isPresented: $showPay) {
+                PaySheet(
+                    session: sessionStore.session,
+                    orderId: lastHit.orderId,
+                    tn: ""
+                )
             }
         }
     }
@@ -126,11 +158,25 @@ struct BurstView: View {
             concurrency: Int(concurrency) ?? 8,
             intervalMs: Int(interval) ?? 0,
             cwb: cwb,
+            ydToken: ydToken,
+            ydLogId: ydLogId,
             target: dest
         )
         log = "开始 \(dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=741"
         let stats = await BurstClient.burst(request: req, session: sessionStore.session)
-        log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)"
+        var extra = ""
+        if let hit = RushHit.best(from: stats.shots) {
+            lastHit = hit
+            extra = "\n业务 code=\(hit.code.map(String.init) ?? "-") \(hit.message) record=\(hit.priorityRecordId) order=\(hit.orderId)"
+            if dest != .mock {
+                if hit.needsYidun {
+                    showYidun = true
+                } else if hit.isHit {
+                    showPay = true
+                }
+            }
+        }
+        log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)"
     }
 
     private func applySpeed(_ value: String) {

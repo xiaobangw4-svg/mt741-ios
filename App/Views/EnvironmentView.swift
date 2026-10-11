@@ -15,6 +15,8 @@ struct EnvironmentView: View {
                     row("短信登录", "app.moutai519.com.cn vcode/login")
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
                     row("异步请求", "n≤64，并发 1-16，间隔 0-2000ms")
+                    row("易盾", "真机滑块 captchaId 741 → verify/code 或 ydToken 重发")
+                    row("支付", "order/pay + requestPay channel=71 拉起支付宝")
                     row("SKU", Product.sku741.sku + " / " + Product.sku741.spu)
                 }
                 Section("本 App 没有") {

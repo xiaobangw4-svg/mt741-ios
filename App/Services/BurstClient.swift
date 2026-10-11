@@ -20,6 +20,7 @@ struct BurstStats: Equatable {
     var fail: Int
     var status: [String: Int]
     var summary: String
+    var shots: [BurstShot] = []
 }
 
 enum BurstTarget: Equatable {
@@ -44,6 +45,8 @@ struct BurstRequest: Equatable {
     var intervalMs: Int = 0
     var cwb: String = ""
     var shopId: String = ""
+    var ydToken: String = ""
+    var ydLogId: String = ""
     var target: BurstTarget = .mock
 }
 
@@ -85,6 +88,8 @@ enum BurstClient {
             amount: request.amount.isEmpty ? "1" : request.amount,
             itemPriorityActId: request.actId,
             deviceId: session.deviceId,
+            ydLogId: request.ydLogId,
+            ydToken: request.ydToken,
             userId: session.userId,
             shopId: request.shopId
         )
@@ -138,7 +143,8 @@ enum BurstClient {
             ok: ok,
             fail: fail,
             status: status,
-            summary: summary
+            summary: summary,
+            shots: shots
         )
     }
 
