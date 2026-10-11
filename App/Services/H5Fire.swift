@@ -12,7 +12,7 @@ enum H5Fire {
             var val = extraHeaders[k];
             if (val === undefined || val === null || val === '') continue;
             var lk = String(k).toLowerCase();
-            if (lk === 'content-web-bb' || lk === 'content-hh-bb' || lk === 'cookie') continue;
+            if (lk === 'content-web-bb' || lk === 'content-hh-bb' || lk === 'cookie' || lk === 'sdk-ver-bb') continue;
             try { xhr.setRequestHeader(k, String(val)); } catch (e) {}
           }
         }

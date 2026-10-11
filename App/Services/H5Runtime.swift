@@ -454,7 +454,9 @@ extension H5Runtime {
                       try { window.__mt741hookCWB && window.__mt741hookCWB(); } catch (e) {}
                       st.wrapped = window.__mt741styleWrapped || 0;
                       st.from = window.__mt741styleFrom || 0;
+                      st.bump = window.__mt741styleBump || 0;
                       st.patched = !!window.__mt741stylePatched;
+                      st.gcs = !!window.__mt741gcs;
                       return JSON.stringify(st);
                     })()
                     """

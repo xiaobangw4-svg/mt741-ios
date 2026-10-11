@@ -18,6 +18,10 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertFalse(js.contains("delete Object.prototype.StyleTotal"))
         XCTAssertTrue(js.contains("hookStyleTotalAssign()"))
         XCTAssertTrue(js.contains("hookScriptSrc()"))
+        XCTAssertTrue(js.contains("hookGCS()"))
+        XCTAssertTrue(js.contains("bumpPx"))
+        XCTAssertTrue(js.contains("isProbe"))
+        XCTAssertTrue(js.contains("beforeload"))
         XCTAssertTrue(js.contains("HTMLScriptElement.prototype"))
         XCTAssertTrue(js.contains("xhr.open('GET', url, false)"))
         XCTAssertTrue(js.contains("bs_h5"))
@@ -68,6 +72,7 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true), "Style脚本在")
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 1, from: 0, patched: true), "Style抬位")
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 1, patched: true), "Style抬位")
+        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true, bump: 0, gcs: true), "Style抬位")
         XCTAssertEqual(
             StyleTotalPatch.statusLabel(fromJSON: #"{"patched":true,"wrapped":1,"from":0}"#),
             "Style抬位"

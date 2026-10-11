@@ -28,8 +28,8 @@ enum StyleTotalPatch {
         String(hash).count >= 5 ? 800 : 768
     }
 
-    static func statusLabel(wrapped: Int, from: Int, patched: Bool) -> String {
-        if wrapped > 0 || from > 0 { return "Style抬位" }
+    static func statusLabel(wrapped: Int, from: Int, patched: Bool, bump: Int = 0, gcs: Bool = false) -> String {
+        if wrapped > 0 || from > 0 || bump > 0 || gcs { return "Style抬位" }
         if patched { return "Style脚本在" }
         return "Style未挂"
     }
@@ -44,10 +44,18 @@ enum StyleTotalPatch {
         } else {
             patched = JSONText.int(obj["patched"]) == 1
         }
+        let gcs: Bool
+        if let b = obj["gcs"] as? Bool {
+            gcs = b
+        } else {
+            gcs = JSONText.int(obj["gcs"]) == 1
+        }
         return statusLabel(
             wrapped: JSONText.int(obj["wrapped"]) ?? 0,
             from: JSONText.int(obj["from"]) ?? 0,
-            patched: patched
+            patched: patched,
+            bump: JSONText.int(obj["bump"]) ?? 0,
+            gcs: gcs
         )
     }
 
@@ -58,6 +66,7 @@ enum StyleTotalPatch {
       window.__mt741styleHit = window.__mt741styleHit || 0;
       window.__mt741styleWrapped = window.__mt741styleWrapped || 0;
       window.__mt741styleFrom = window.__mt741styleFrom || 0;
+      window.__mt741styleBump = window.__mt741styleBump || 0;
       function lift(h, token) {
         h = h >>> 0;
         if (h >= 10000) return h;
@@ -155,30 +164,62 @@ enum StyleTotalPatch {
           Object.defineProperty = wrapped;
         } catch (e) {}
       }
+      function isProbe(el) {
+        try {
+          if (!el || el.nodeName !== 'DIV') return false;
+          if (el.id) return false;
+          var cn = el.className;
+          if (cn && String(cn).length) return false;
+          var w = el.style && el.style.width;
+          if (!w) return false;
+          var n = parseInt(w, 10);
+          return n === n && n >= 0 && n <= 255;
+        } catch (e) { return false; }
+      }
+      function bumpPx(v) {
+        var n = parseInt(v, 10);
+        if (n !== n) return v;
+        return (n + 200) + 'px';
+      }
+      function bumpStyle(st, el) {
+        if (!st || !isProbe(el)) return st;
+        try {
+          window.__mt741styleBump = (window.__mt741styleBump || 0) + 1;
+          return new Proxy(st, {
+            get: function (t, p) {
+              if (p === 'width' || p === 'height') {
+                try { return bumpPx(t[p]); } catch (e) {}
+              }
+              var v = t[p];
+              if (typeof v === 'function') return v.bind(t);
+              return v;
+            }
+          });
+        } catch (e) { return st; }
+      }
       function hookGCS() {
         if (window.__mt741gcs) return;
+        var gcs = window.getComputedStyle;
+        if (typeof gcs !== 'function') return;
+        var wrapped = function (el, pseudo) {
+          try { if (el) void el.offsetWidth; } catch (e) {}
+          var st = gcs.call(window, el, pseudo);
+          return bumpStyle(st, el);
+        };
+        disguise(wrapped, gcs);
         try {
-          var gcs = window.getComputedStyle;
-          if (typeof gcs !== 'function') return;
-          var wrapped = function (el, pseudo) {
-            try { if (el) void el.offsetWidth; } catch (e) {}
-            return gcs.call(window, el, pseudo);
-          };
-          disguise(wrapped, gcs);
-          try {
-            window.getComputedStyle = wrapped;
-            window.__mt741gcs = true;
-          } catch (e) {
-            try {
-              Object.defineProperty(window, 'getComputedStyle', {
-                configurable: true,
-                writable: true,
-                value: wrapped
-              });
-              window.__mt741gcs = true;
-            } catch (e2) {}
-          }
+          window.getComputedStyle = wrapped;
+          window.__mt741gcs = true;
+          return;
         } catch (e) {}
+        try {
+          Object.defineProperty(window, 'getComputedStyle', {
+            configurable: true,
+            writable: true,
+            value: wrapped
+          });
+          window.__mt741gcs = true;
+        } catch (e2) {}
       }
       function hookFetch() {
         if (window.__mt741styleFetch) return;
@@ -257,12 +298,58 @@ enum StyleTotalPatch {
           return setAttr.apply(this, arguments);
         };
       }
+      function hookBeforeLoad() {
+        if (window.__mt741beforeLoad) return;
+        window.__mt741beforeLoad = true;
+        function isSdk(url) {
+          return /bs_h5(\.min)?\.js/i.test(String(url || ''));
+        }
+        function intercept(el) {
+          if (!el || el.__mt741sdk) return;
+          var url = '';
+          try { url = el.getAttribute('src') || el.src || ''; } catch (e) {}
+          if (!isSdk(url)) return;
+          try { el.type = 'text/plain'; } catch (e) {}
+          el.__mt741sdk = true;
+          try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, false);
+            xhr.send(null);
+            var patched = patchSrc(xhr.responseText || '');
+            if (patched && patched.indexOf('_h<10000') !== -1) {
+              var s = document.createElement('script');
+              s.text = patched + '\n//# sourceURL=' + url;
+              var parent = el.parentNode || document.head || document.documentElement;
+              parent.appendChild(s);
+              window.__mt741styleHit = (window.__mt741styleHit || 0) + 1;
+              return;
+            }
+          } catch (e) {}
+          try { el.type = 'text/javascript'; } catch (e) {}
+        }
+        document.addEventListener('beforeload', function (e) {
+          try {
+            var el = e.target;
+            if (el && el.tagName === 'SCRIPT' && isSdk(el.src || '')) {
+              try { e.preventDefault(); } catch (err) {}
+              intercept(el);
+            }
+          } catch (err) {}
+        }, true);
+        document.addEventListener('DOMNodeInserted', function (e) {
+          try {
+            var el = e.target;
+            if (el && el.tagName === 'SCRIPT') intercept(el);
+          } catch (err) {}
+        }, true);
+      }
       function hook() {
-        hookScriptSrc();
-        hookStyleTotalAssign();
-        hookDefineProperty();
-        hookFetch();
-        hookGCS();
+        try { hookGCS(); } catch (e) {}
+        try { hookStyleTotalAssign(); } catch (e) {}
+        try { hookDefineProperty(); } catch (e) {}
+        try { hookBeforeLoad(); } catch (e) {}
+        try { hookScriptSrc(); } catch (e) {}
+        try { hookFetch(); } catch (e) {}
         try {
           if (typeof window.StyleTotal === 'function') {
             window.StyleTotal = wrapFn(window.StyleTotal);
@@ -273,7 +360,9 @@ enum StyleTotalPatch {
           patched: true,
           wrapped: window.__mt741styleWrapped || 0,
           from: window.__mt741styleFrom || 0,
-          hit: window.__mt741styleHit || 0
+          hit: window.__mt741styleHit || 0,
+          bump: window.__mt741styleBump || 0,
+          gcs: !!window.__mt741gcs
         };
       }
       window.__mt741liftStyle = lift;

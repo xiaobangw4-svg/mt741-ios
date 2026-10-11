@@ -9,6 +9,7 @@ final class H5FireTests: XCTestCase {
         XCTAssertTrue(H5Fire.javaScript.contains("withCredentials"))
         XCTAssertTrue(H5Fire.javaScript.contains("MT-K"))
         XCTAssertTrue(H5Fire.javaScript.contains("content-web-bb"))
+        XCTAssertTrue(H5Fire.javaScript.contains("sdk-ver-bb"))
         XCTAssertTrue(H5Fire.javaScript.contains("rushPurchase") || H5Fire.javaScript.contains("xhrOnce"))
     }
 
