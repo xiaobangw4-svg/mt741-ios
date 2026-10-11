@@ -198,7 +198,67 @@ enum StyleTotalPatch {
           });
         }, orig);
       }
+      function hookScriptSrc() {
+        if (window.__mt741scriptSrc) return;
+        window.__mt741scriptSrc = true;
+        function isSdk(url) {
+          return /bs_h5(\.min)?\.js/i.test(String(url || ''));
+        }
+        var srcDesc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')
+          || Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'src');
+        var setAttr = Element.prototype.setAttribute;
+        function fetchPatched(url) {
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', url, false);
+          xhr.send(null);
+          return patchSrc(xhr.responseText || '');
+        }
+        function hijack(el, url) {
+          if (!el || el.__mt741sdk) return;
+          el.__mt741sdk = true;
+          try { el.removeAttribute('integrity'); } catch (e) {}
+          try { el.type = 'text/plain'; } catch (e) {}
+          var patched = '';
+          try { patched = fetchPatched(url); } catch (e) { patched = ''; }
+          try {
+            if (srcDesc && srcDesc.set) srcDesc.set.call(el, url);
+            else setAttr.call(el, 'src', url);
+          } catch (e) {}
+          if (!patched || patched.indexOf('_h<10000') === -1) {
+            try { el.type = 'text/javascript'; } catch (e) {}
+            try {
+              if (srcDesc && srcDesc.set) srcDesc.set.call(el, url);
+            } catch (e) {}
+            return;
+          }
+          var s = document.createElement('script');
+          s.text = patched + '\n//# sourceURL=' + url;
+          var parent = el.parentNode || document.head || document.documentElement;
+          if (el.nextSibling) parent.insertBefore(s, el.nextSibling);
+          else parent.appendChild(s);
+          window.__mt741styleHit = (window.__mt741styleHit || 0) + 1;
+        }
+        if (srcDesc && srcDesc.set) {
+          Object.defineProperty(HTMLScriptElement.prototype, 'src', {
+            configurable: true,
+            enumerable: true,
+            get: function () { return srcDesc.get ? srcDesc.get.call(this) : ''; },
+            set: function (url) {
+              if (isSdk(url) && !this.__mt741sdk) { hijack(this, url); return; }
+              srcDesc.set.call(this, url);
+            }
+          });
+        }
+        Element.prototype.setAttribute = function (name, value) {
+          if (this.tagName === 'SCRIPT' && String(name).toLowerCase() === 'src' && isSdk(value) && !this.__mt741sdk) {
+            hijack(this, value);
+            return;
+          }
+          return setAttr.apply(this, arguments);
+        };
+      }
       function hook() {
+        hookScriptSrc();
         hookStyleTotalAssign();
         hookDefineProperty();
         hookFetch();
