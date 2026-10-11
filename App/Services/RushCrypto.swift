@@ -46,55 +46,39 @@ enum RushCrypto {
     }
 
     static func encrypt(_ plaintext: String) -> String {
-        let data = Data(plaintext.utf8)
-        var out = Data(count: data.count + kCCBlockSizeAES128)
-        var outLen = 0
-        let status = data.withUnsafeBytes { inBytes in
-            aesKey.withUnsafeBytes { keyBytes in
-                aesIV.withUnsafeBytes { ivBytes in
-                    out.withUnsafeMutableBytes { outBytes in
-                        CCCrypt(
-                            CCOperation(kCCEncrypt),
-                            CCAlgorithm(kCCAlgorithmAES),
-                            CCOptions(kCCOptionPKCS7Padding),
-                            keyBytes.baseAddress, kCCKeySizeAES256,
-                            ivBytes.baseAddress,
-                            inBytes.baseAddress, data.count,
-                            outBytes.baseAddress, out.count,
-                            &outLen
-                        )
-                    }
-                }
-            }
-        }
-        precondition(status == kCCSuccess, "AES encrypt failed \(status)")
-        return out.prefix(outLen).base64EncodedString()
+        crypt(Data(plaintext.utf8), operation: CCOperation(kCCEncrypt)).base64EncodedString()
     }
 
     static func decrypt(_ b64: String) -> String {
         guard let data = Data(base64Encoded: b64) else { return "" }
-        var out = Data(count: data.count + 16)
+        return String(data: crypt(data, operation: CCOperation(kCCDecrypt)), encoding: .utf8) ?? ""
+    }
+
+    private static func crypt(_ data: Data, operation: CCOperation) -> Data {
+        let inCount = data.count
+        let outCapacity = inCount + kCCBlockSizeAES128
+        var out = Data(count: outCapacity)
         var outLen = 0
-        let status = data.withUnsafeBytes { inBytes in
+        let status: CCCryptorStatus = data.withUnsafeBytes { inBytes in
             aesKey.withUnsafeBytes { keyBytes in
                 aesIV.withUnsafeBytes { ivBytes in
                     out.withUnsafeMutableBytes { outBytes in
                         CCCrypt(
-                            CCOperation(kCCDecrypt),
+                            operation,
                             CCAlgorithm(kCCAlgorithmAES),
                             CCOptions(kCCOptionPKCS7Padding),
                             keyBytes.baseAddress, kCCKeySizeAES256,
                             ivBytes.baseAddress,
-                            inBytes.baseAddress, data.count,
-                            outBytes.baseAddress, out.count,
+                            inBytes.baseAddress, inCount,
+                            outBytes.baseAddress, outCapacity,
                             &outLen
                         )
                     }
                 }
             }
         }
-        guard status == kCCSuccess else { return "" }
-        return String(data: out.prefix(outLen), encoding: .utf8) ?? ""
+        guard status == kCCSuccess else { return Data() }
+        return out.prefix(outLen)
     }
 
     static func rushBody(plain: RushPlain) -> String {
