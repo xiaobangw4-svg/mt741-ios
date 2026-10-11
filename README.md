@@ -13,6 +13,7 @@ Windows 上写的 iOS App：SKU **741** 飞天 500ml 商品卡 + 短信登录 + 
 | 工作流 | 你在手机上看到的 | 要不要 Apple 证书 |
 | --- | --- | --- |
 | **Live Preview** | CI 里的 **模拟器** 画面（MJPEG），用手机浏览器打开 | 不要。只要一个 ≥12 位预览密码 |
+| **Build IPA** | 未签名 IPA，用 Sideloadly + 免费 Apple ID 装到真机 | 不要付费账号。7 天要重签 |
 | **TestFlight** | 装到 **真机** 上的 App | 要。Apple Team + App Store Connect API Key |
 
 Live Preview 不是真机运行；真机安装走 TestFlight。
@@ -23,7 +24,8 @@ Live Preview 不是真机运行；真机安装走 TestFlight。
 2. `git push`
 3. 打开 GitHub Actions 读 **Build & Test** 报告
 4. 要在手机浏览器里看模拟器：Actions → **Live Preview** → Run workflow
-5. 要装到自己的 iPhone：先配 Secrets，再跑 **TestFlight**，或打 `v*` 标签
+5. 免费装到自己的 iPhone：Actions → **Build IPA** → 下载产物 `MT741-unsigned`，用 Sideloadly 安装
+6. 要装到自己的 iPhone（TestFlight）：先配 Secrets，再跑 **TestFlight**，或打 `v*` 标签
 
 工程由 CI 执行 `xcodegen generate`，不要提交 `MT741.xcodeproj`。
 
@@ -64,6 +66,16 @@ git push -u origin main
 - `APP_STORE_CONNECT_PRIVATE_KEY`（.p8 全文）
 
 Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Developer 注册这个 ID（或改 `.ios-ci.yml` / `project.yml` 成你已经有的 ID），再跑 TestFlight 工作流。
+
+## 免费 Sideloadly 装真机
+
+1. 跑 **Build IPA**，从产物下载 `MT741.ipa`
+2. Windows 安装 [Sideloadly](https://sideloadly.io/)
+3. iPhone 用数据线连电脑，点信任
+4. iOS 16+：设置 → 隐私与安全性 → **开发者模式** 打开并重启
+5. Sideloadly 填免费 Apple ID，拖入 `MT741.ipa`，点 Start
+6. 设置 → 通用 → VPN 与设备管理 → 信任这个开发者
+7. 主屏幕打开 **MT741**。免费签名大约 7 天过期，过期再签一次
 
 ## App 做什么
 

@@ -1,0 +1,77 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-ipa
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          ls /Applications | grep -i xcode || true
+          if [ -d /Applications/Xcode_26.6.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.6.app
+          elif [ -d /Applications/Xcode_26.6.0.app ]; then
+            sudo xcode-select -s /Applications/Xcode_26.6.0.app
+          fi
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Generate Xcode project
+        run: |
+          set -euo pipefail
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate
+
+      - name: Build unsigned iphoneos app
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          xcodebuild build \
+            -project MT741.xcodeproj \
+            -scheme MT741 \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | tee build/xcodebuild-ipa.log \
+            | tail -n 80
+
+      - name: Pack IPA
+        run: |
+          set -euo pipefail
+          APP=$(find build/DerivedData/Build/Products -path '*iphoneos*/MT741.app' -type d | head -1)
+          echo "APP=$APP"
+          test -n "$APP"
+          test -d "$APP"
+          rm -rf build/Payload
+          mkdir -p build/Payload
+          cp -R "$APP" build/Payload/
+          (cd build && zip -qry "$GITHUB_WORKSPACE/MT741.ipa" Payload)
+          ls -lh "$GITHUB_WORKSPACE/MT741.ipa"
+          unzip -l "$GITHUB_WORKSPACE/MT741.ipa" | head
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MT741-unsigned
+          path: MT741.ipa
+          if-no-files-found: error
+          retention-days: 14
