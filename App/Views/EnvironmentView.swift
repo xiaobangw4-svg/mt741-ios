@@ -25,7 +25,7 @@ struct EnvironmentView: View {
                     row("CWB", "H5 WKWebView 拦截 Content-Web-Bb，异步请求自动带上")
                     row("actId", "purchaseInfoV2 POST hot+spuId=\(productStore.selected.spu)")
                     row("组单", "2000 后 v1 compose/submit 出 orderId")
-                    row("出单", "真机登录后选「H5出单」：页内 XHR 现签 CWB，命中后组单并拉起支付宝")
+                    row("出单", "真机登录后点「自动出单」：加载官方页 → 现签 CWB → 拉 actId → 开火 → 组单支付")
                     row("SKU", "\(productStore.selected.sku) / \(productStore.selected.spu) / \(productStore.selected.volume)")
                 }
                 Section("本 App 没有") {

@@ -34,7 +34,7 @@ enum CatalogClient {
                 )
             }
         }
-        return PurchaseInfo(ok: false, message: (json["message"] as? String) ?? "未找到购买信息")
+        return PurchaseInfo(ok: false, message: (json["message"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "当日暂无 actId（非放货窗口或该 SKU 无购买信息）")
     }
 
     static func fetch(session: Session, product: Product = .sku741) async -> PurchaseInfo {

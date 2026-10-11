@@ -5,8 +5,6 @@ enum CWBHook {
 
     static let javaScript = #"""
     (function () {
-      if (window.__mt741cwb) return;
-      window.__mt741cwb = true;
       function report(cwb, hh, url) {
         try {
           if (!cwb) return;
@@ -31,32 +29,66 @@ enum CWBHook {
         }
         return { cwb: cwb, hh: hh };
       }
-      var open = XMLHttpRequest.prototype.open;
-      XMLHttpRequest.prototype.open = function (m, u) {
-        this.__mt741url = u;
-        return open.apply(this, arguments);
-      };
-      var setH = XMLHttpRequest.prototype.setRequestHeader;
-      XMLHttpRequest.prototype.setRequestHeader = function (k, v) {
-        var lk = String(k || '').toLowerCase();
-        if (lk === 'content-web-bb' && v) this.__mt741cwb = v;
-        if (lk === 'content-hh-bb' && v) this.__mt741hh = v;
-        if (this.__mt741cwb) report(this.__mt741cwb, this.__mt741hh, this.__mt741url);
-        return setH.apply(this, arguments);
-      };
-      var send = XMLHttpRequest.prototype.send;
-      XMLHttpRequest.prototype.send = function () {
-        if (this.__mt741cwb) report(this.__mt741cwb, this.__mt741hh, this.__mt741url);
-        return send.apply(this, arguments);
-      };
-      var origFetch = window.fetch;
-      window.fetch = function (input, init) {
-        var url = (typeof input === 'string') ? input : ((input && input.url) || '');
-        var h = (init && init.headers) || (input && input.headers);
-        var p = fromHeaders(h);
-        if (p.cwb) report(p.cwb, p.hh, url);
-        return origFetch.apply(this, arguments);
-      };
+      function hookXHR() {
+        var proto = XMLHttpRequest.prototype;
+        if (proto.__mt741set) return;
+        proto.__mt741set = true;
+        var open = proto.open;
+        proto.open = function (m, u) {
+          this.__mt741url = u;
+          return open.apply(this, arguments);
+        };
+        var setH = proto.setRequestHeader;
+        proto.setRequestHeader = function (k, v) {
+          var lk = String(k || '').toLowerCase();
+          if (lk === 'content-web-bb' && v) this.__mt741cwb = v;
+          if (lk === 'content-hh-bb' && v) this.__mt741hh = v;
+          if (this.__mt741cwb) report(this.__mt741cwb, this.__mt741hh, this.__mt741url);
+          return setH.apply(this, arguments);
+        };
+        var send = proto.send;
+        proto.send = function () {
+          if (this.__mt741cwb) report(this.__mt741cwb, this.__mt741hh, this.__mt741url);
+          return send.apply(this, arguments);
+        };
+      }
+      function hookFetch() {
+        if (window.__mt741fetch) return;
+        window.__mt741fetch = true;
+        var origFetch = window.fetch;
+        window.fetch = function (input, init) {
+          var url = (typeof input === 'string') ? input : ((input && input.url) || '');
+          var h = (init && init.headers) || (input && input.headers);
+          var p = fromHeaders(h);
+          if (p.cwb) report(p.cwb, p.hh, url);
+          return origFetch.apply(this, arguments);
+        };
+      }
+      function hookHeaders() {
+        try {
+          var Hs = window.Headers;
+          if (!Hs || !Hs.prototype || Hs.prototype.__mt741) return;
+          Hs.prototype.__mt741 = true;
+          var hset = Hs.prototype.set;
+          Hs.prototype.set = function (k, v) {
+            var lk = String(k || '').toLowerCase();
+            if (lk === 'content-web-bb' && v) report(v, '', '');
+            if (lk === 'content-hh-bb' && v) report('', v, '');
+            return hset.apply(this, arguments);
+          };
+          var happ = Hs.prototype.append;
+          Hs.prototype.append = function (k, v) {
+            var lk = String(k || '').toLowerCase();
+            if (lk === 'content-web-bb' && v) report(v, '', '');
+            return happ.apply(this, arguments);
+          };
+        } catch (e) {}
+      }
+      hookXHR();
+      hookFetch();
+      hookHeaders();
+      window.__mt741cwb = true;
+      window.__mt741hookCWB = function () { hookXHR(); hookFetch(); hookHeaders(); return true; };
     })();
     """#
 

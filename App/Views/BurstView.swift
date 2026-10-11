@@ -17,7 +17,7 @@ struct BurstView: View {
     @State private var shopId = ""
     @State private var ydToken = ""
     @State private var ydLogId = ""
-    @State private var log = "默认本机回放。真机出单：登录 → 等 H5 商品页起来 → 选「H5出单」。"
+    @State private var log = "真机出单：登录后点「自动出单」。本机试跑用「开始异步请求」。"
     @State private var busy = false
     @State private var confirmOfficial = false
     @State private var confirmH5 = false
@@ -28,6 +28,19 @@ struct BurstView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Text(pipelineStatus)
+                        .font(.footnote.monospaced())
+                        .accessibilityIdentifier("burst.pipeline")
+                    Button(busy ? "自动出单中…" : "自动出单") {
+                        Task { await autoRun() }
+                    }
+                    .disabled(busy)
+                    .accessibilityIdentifier("burst.auto")
+                    Text("一点：加载官方商品页 → wasm 现签 CWB → 拉当日 actId → 页内开火 → 组单支付。先登录。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Section("\(productStore.selected.volume) 异步请求") {
                     TextField("活动 ID", text: $actId)
                         .keyboardType(.numberPad)
@@ -120,9 +133,6 @@ struct BurstView: View {
             .navigationTitle("异步")
             .task(id: productStore.selected.sku) {
                 amount = productStore.selected.defaultAmount
-                if sessionStore.session.isLoggedIn {
-                    await fetchActId()
-                }
             }
             .alert("H5 页内出单", isPresented: $confirmH5) {
                 Button("取消", role: .cancel) {}
@@ -158,7 +168,7 @@ struct BurstView: View {
     private func start() {
         switch target {
         case "h5page":
-            confirmH5 = true
+            Task { await runBurst(.h5Page) }
         case "official":
             confirmOfficial = true
         case "custom":
@@ -181,6 +191,13 @@ struct BurstView: View {
         log = "sku=\(plain.itemCode) act=\(plain.itemPriorityActId) v=0003\nkeys=actParam,v\n\(body.prefix(240))"
     }
 
+    private var pipelineStatus: String {
+        let login = sessionStore.session.isLoggedIn ? "已登录" : "未登录"
+        let h5 = h5Runtime.ready ? "H5就绪" : "H5未就绪"
+        let cwbText = cwbStore.cwb.isEmpty ? "CWB空" : "CWB \(cwbStore.cwb.count)字"
+        return "\(login) · \(h5) · \(cwbText) · actId \(actId.isEmpty ? "无" : actId)"
+    }
+
     private var usedCWB: String {
         let pasted = cwb.trimmingCharacters(in: .whitespacesAndNewlines)
         return pasted.isEmpty ? cwbStore.cwb : pasted
@@ -193,7 +210,7 @@ struct BurstView: View {
                     ? "H5 页已加载。开火时由页内 wasm 现签，不用粘贴。"
                     : "H5 已捕获 CWB \(cwbStore.cwb.count) 字，页内开火会再签一次。"
             }
-            return "H5 商品页还没好。先登录，必要时打开「H5」等到有 CWB。"
+            return "H5 商品页还没好。点「自动出单」会先加载官方页并现签。"
         }
         if !cwb.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "使用粘贴的 CWB \(cwb.count) 字"
@@ -201,15 +218,26 @@ struct BurstView: View {
         if !cwbStore.cwb.isEmpty {
             return "使用 H5 捕获的 CWB \(cwbStore.cwb.count) 字"
         }
-        return "还没有 CWB。出单请选「H5出单」并先打开 H5。"
+        return "还没有 CWB。点「自动出单」由页内 wasm 现签，不用粘贴。"
     }
 
     private func fetchActId() async {
-        let info: PurchaseInfo
-        if h5Runtime.ready {
-            info = await h5Runtime.fetchActId(product: productStore.selected)
+        let product = productStore.selected
+        h5Runtime.bindIfNeeded(
+            session: sessionStore.session,
+            cwbStore: cwbStore,
+            product: product
+        )
+        var info: PurchaseInfo
+        if sessionStore.session.isLoggedIn {
+            if let err = await h5Runtime.waitUntilReady(seconds: 20, product: product, session: sessionStore.session) {
+                log = "H5 未就绪：\(err)，改走 URLSession"
+                info = await CatalogClient.fetch(session: sessionStore.session, product: product)
+            } else {
+                info = await h5Runtime.fetchActId(product: product, session: sessionStore.session)
+            }
         } else {
-            info = await CatalogClient.fetch(session: sessionStore.session, product: productStore.selected)
+            info = await CatalogClient.fetch(session: sessionStore.session, product: product)
         }
         if info.ok {
             actId = info.actId
@@ -219,19 +247,58 @@ struct BurstView: View {
         }
         if !busy {
             log = info.ok
-                ? "purchaseInfoV2 actId=\(info.actId) sku=\(info.skuId) via=\(h5Runtime.ready ? "H5" : "URLSession")"
+                ? "purchaseInfoV2 actId=\(info.actId) sku=\(info.skuId) CWB=\(cwbStore.cwb.count)"
                 : "purchaseInfoV2 \(info.message)"
         }
+    }
+
+    private func autoRun() async {
+        let product = productStore.selected
+        if !sessionStore.session.isLoggedIn {
+            log = "先登录，再点「自动出单」。"
+            return
+        }
+        busy = true
+        defer { busy = false }
+        log = "1/4 加载官方 \(product.volume) 商品页…"
+        h5Runtime.bindIfNeeded(
+            session: sessionStore.session,
+            cwbStore: cwbStore,
+            product: product,
+            forceLoad: !h5Runtime.isLive
+        )
+        if let err = await h5Runtime.waitUntilReady(seconds: 28, product: product, session: sessionStore.session) {
+            log = "商品页未就绪：\(err)"
+            return
+        }
+        log = "2/4 拉取当日 actId… CWB=\(cwbStore.cwb.isEmpty ? "页内现签" : "\(cwbStore.cwb.count)字")"
+        let info = await h5Runtime.fetchActId(product: product, session: sessionStore.session)
+        if info.ok {
+            actId = info.actId
+            if !info.shopId.isEmpty {
+                shopId = info.shopId
+            }
+        } else {
+            log = "actId 拉不到：\(info.message)\nCWB=\(cwbStore.cwb.count) H5=\(h5Runtime.pageURL)"
+            return
+        }
+        log = "3/4 actId=\(actId) 页内开火 sku=\(product.sku) n=\(n)…"
+        await executeBurst(.h5Page)
     }
 
     private func runBurst(_ dest: BurstTarget) async {
         let product = productStore.selected
         if dest == .h5Page, !sessionStore.session.isLoggedIn {
-            log = "先登录再选「H5出单」。登录后 App 会在后台加载官方 \(product.volume) 商品页。"
+            log = "先登录再选「H5出单」。登录后点「自动出单」会加载官方 \(product.volume) 商品页。"
             return
         }
         busy = true
         defer { busy = false }
+        await executeBurst(dest)
+    }
+
+    private func executeBurst(_ dest: BurstTarget) async {
+        let product = productStore.selected
         let req = BurstRequest(
             actId: actId.trimmingCharacters(in: .whitespacesAndNewlines),
             amount: amount.isEmpty ? product.defaultAmount : amount,

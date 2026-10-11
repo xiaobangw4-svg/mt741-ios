@@ -84,7 +84,7 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 - 商品页：点选 741 / `IMTP1000313` / 飞天 500ml（默认 1 瓶，`hot/branch/one`）或 10193 / `IMTP1000006` / 飞天 100ml（默认 2 瓶，`hot/branch/five`）
 - 登录页：短信验证码，打 `app.moutai519.com.cn` 的 vcode / login；实名、找回身份证、注销账号。会话不保存 `idCode`，身份证不落盘
 - H5 页：WKWebView 打开官方 `h5.moutai519.com.cn`，拦截 XHR/fetch 的 `Content-Web-Bb`
-- 出单：真机登录后等 H5 商品页在后台加载；异步页选 **H5出单**，页内 XHR 走官方 wasm 现签 CWB，2000 后 `compose`/`submit` 出 `orderId`，再 `order/pay` + `requestPay` channel=71 拉起支付宝
+- 出单：真机登录后在异步页点 **自动出单**。App 加载官方商品页，由页内 wasm 现签 CWB、拉当日 actId、开火，2000 后 `compose`/`submit` 出 `orderId`，再 `order/pay` + `requestPay` channel=71 拉起支付宝
 
 验证码 MD5 与 Windows 工具同一套盐：`md5(VCODE_SALT + mobile + timestamp)`。
 

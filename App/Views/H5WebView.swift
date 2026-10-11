@@ -47,12 +47,12 @@ struct WebViewContainer: UIViewRepresentable {
     let product: Product
 
     func makeUIView(context: Context) -> WKWebView {
-        runtime.bindIfNeeded(session: session, cwbStore: cwbStore, product: product, forceLoad: true)
+        runtime.bindIfNeeded(session: session, cwbStore: cwbStore, product: product)
         return runtime.webView
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
-        runtime.bindIfNeeded(session: session, cwbStore: cwbStore, product: product, forceLoad: true)
+        runtime.bindIfNeeded(session: session, cwbStore: cwbStore, product: product)
     }
 
     static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {

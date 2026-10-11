@@ -55,6 +55,13 @@ final class CatalogClientTests: XCTestCase {
         XCTAssertEqual(info.skuId, "10193")
     }
 
+    func testParseEmptyMapExplainsNoActId() {
+        let json: [String: Any] = ["code": 2000, "data": ["purchaseInfoMap": [:]]]
+        let info = CatalogClient.parse(json)
+        XCTAssertFalse(info.ok)
+        XCTAssertTrue(info.message.contains("actId") || info.message.contains("购买信息"))
+    }
+
     func testParseRejectsNon2000() {
         let info = CatalogClient.parse(["code": 4810, "message": "缺 spuId"])
         XCTAssertFalse(info.ok)

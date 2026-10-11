@@ -9,6 +9,7 @@ final class H5Runtime: NSObject, ObservableObject {
     weak var cwbStore: CWBStore?
     @Published var ready = false
     @Published var pageURL = ""
+    @Published var lastProbe = ""
 
     private var fingerprint = ""
     private let proxy = BridgeProxy()
@@ -29,7 +30,7 @@ final class H5Runtime: NSObject, ObservableObject {
         config.websiteDataStore = .default()
         config.userContentController = content
         config.defaultWebpagePreferences.allowsContentJavaScript = true
-        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 8, height: 8), configuration: config)
+        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 375, height: 667), configuration: config)
         view.customUserAgent = CookieBridge.h5UA
         view.accessibilityIdentifier = "h5.webview"
         webView = view
@@ -59,7 +60,7 @@ final class H5Runtime: NSObject, ObservableObject {
         let shouldLoad = forceLoad || session.isLoggedIn
         guard shouldLoad else { return }
         let next = session.cookie + "|" + session.token + "|" + session.deviceId + "|" + product.sku
-        if fingerprint == next, webView.url != nil { return }
+        if fingerprint == next, webView.url != nil, !forceLoad { return }
         fingerprint = next
         CookieBridge.apply(session) { [weak self] in
             self?.keepInWindow()
@@ -69,7 +70,7 @@ final class H5Runtime: NSObject, ObservableObject {
 
     func fire(request: BurstRequest, session: Session) async -> BurstStats {
         keepInWindow()
-        if let err = await waitUntilReady(seconds: 18) {
+        if let err = await waitUntilReady(seconds: 25, product: request.product, session: session) {
             return BurstStats(
                 url: request.target.urlString,
                 n: BurstClient.clampN(request.n),
@@ -108,12 +109,7 @@ final class H5Runtime: NSObject, ObservableObject {
         ]
         let t0 = Date()
         do {
-            let result = try await webView.callAsyncJavaScript(
-                "return await window.__mt741fire(payload);",
-                arguments: ["payload": payload],
-                in: nil,
-                in: .page
-            )
+            let result = try await callJS("return await window.__mt741fire(payload);", arguments: ["payload": payload])
             let elapsed = Date().timeIntervalSince(t0) * 1000
             return H5Fire.stats(from: result, request: request, elapsedMs: elapsed)
         } catch {
@@ -135,9 +131,9 @@ final class H5Runtime: NSObject, ObservableObject {
         }
     }
 
-    func fetchActId(product: Product = .sku741) async -> PurchaseInfo {
-        if pageError() != nil {
-            return PurchaseInfo(ok: false, message: pageError() ?? "H5 未就绪")
+    func fetchActId(product: Product = .sku741, session: Session? = nil) async -> PurchaseInfo {
+        if let err = pageError() {
+            return PurchaseInfo(ok: false, message: err)
         }
         let bodyObj: [String: Any] = ["hot": true, "spuId": product.spu]
         let body = String(data: (try? JSONSerialization.data(withJSONObject: bodyObj)) ?? Data(), encoding: .utf8) ?? ""
@@ -146,22 +142,26 @@ final class H5Runtime: NSObject, ObservableObject {
                 method: "POST",
                 url: CatalogClient.purchaseInfoURL.absoluteString,
                 body: body,
-                session: nil
+                session: session,
+                timeoutMs: 8000
             )
-            return CatalogClient.parse(json, sku: product.sku)
+            let info = CatalogClient.parse(json, sku: product.sku)
+            lastProbe = info.message
+            return info
         } catch {
+            lastProbe = error.localizedDescription
             return PurchaseInfo(ok: false, message: error.localizedDescription)
         }
     }
 
     func fetchAddress() async -> (message: String, address: [String: Any]?) {
-        if pageError() != nil {
-            return (pageError() ?? "H5 未就绪", nil)
+        if let err = pageError() {
+            return (err, nil)
         }
         let ts = String(Int64(Date().timeIntervalSince1970 * 1000))
         let url = CatalogClient.addressURL.absoluteString + "?__timestamp=" + ts
         do {
-            let json = try await requestJSON(method: "GET", url: url, body: nil, session: nil)
+            let json = try await requestJSON(method: "GET", url: url, body: nil, session: nil, timeoutMs: 12000)
             if let addr = CatalogClient.parseAddress(json) {
                 return ("地址 id=\(JSONText.string(addr["shipAddressId"]))", addr)
             }
@@ -180,47 +180,85 @@ final class H5Runtime: NSObject, ObservableObject {
         }
     }
 
-    private func requestJSON(method: String, url: String, body: String?, session: Session?) async throws -> [String: Any] {
-        var payload: [String: Any] = ["method": method, "url": url, "timeoutMs": 12000]
+    func waitUntilReady(seconds: Double, product: Product = .sku741, session: Session? = nil) async -> String? {
+        keepInWindow()
+        let deadline = Date().addingTimeInterval(seconds)
+        var last = "H5 页未就绪"
+        while Date() < deadline {
+            reinstallHooks()
+            if isLive, await fireFunctionReady() {
+                ready = true
+                if await probeSigned(product: product, session: session) {
+                    return nil
+                }
+                if !(cwbStore?.cwb.isEmpty ?? true) {
+                    return nil
+                }
+                last = lastProbe.isEmpty ? "商品页已开，等 wasm 现签 CWB" : lastProbe
+            } else {
+                last = pageError() ?? "H5 页未就绪（先登录，等商品页 wasm 起来）"
+            }
+            try? await Task.sleep(nanoseconds: 800_000_000)
+        }
+        if isLive, await fireFunctionReady() {
+            ready = true
+            return nil
+        }
+        return last
+    }
+
+    private func probeSigned(product: Product, session: Session?) async -> Bool {
+        let info = await fetchActId(product: product, session: session)
+        if info.ok { return true }
+        let msg = info.message
+        if msg.contains("code=") || msg.contains("4011") || msg.contains("4293") || msg.contains("暂无 actId") || msg.contains("未找到购买信息") {
+            return !(cwbStore?.cwb.isEmpty ?? true) || msg.contains("暂无 actId") || msg.contains("未找到购买信息")
+        }
+        return false
+    }
+
+    private func requestJSON(method: String, url: String, body: String?, session: Session?, timeoutMs: Int) async throws -> [String: Any] {
+        var payload: [String: Any] = ["method": method, "url": url, "timeoutMs": timeoutMs]
         if let body, !body.isEmpty {
             payload["body"] = body
         }
         if let session {
             payload["headers"] = H5Fire.pageHeaders(deviceId: session.deviceId)
         }
-        let result = try await webView.callAsyncJavaScript(
-            "return await window.__mt741request(payload);",
-            arguments: ["payload": payload],
-            in: nil,
-            in: .page
-        )
+        let result = try await callJS("return await window.__mt741request(payload);", arguments: ["payload": payload])
         let row = (result as? [String: Any]) ?? [:]
         let text = JSONText.string(row["body"])
+        let err = JSONText.string(row["error"])
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
+            let hint = err.isEmpty ? (text.isEmpty ? "H5 请求无返回（页内 JS 未跑起来）" : String(text.prefix(120))) : err
             throw NSError(domain: "H5", code: JSONText.int(row["status"]) ?? 0, userInfo: [
-                NSLocalizedDescriptionKey: JSONText.string(row["error"]).isEmpty ? String(text.prefix(120)) : JSONText.string(row["error"]),
+                NSLocalizedDescriptionKey: hint,
             ])
         }
         return json
     }
 
-    private func waitUntilReady(seconds: Double) async -> String? {
-        keepInWindow()
-        let deadline = Date().addingTimeInterval(seconds)
-        while Date() < deadline {
-            if isLive, await fireFunctionReady() {
-                ready = true
-                return nil
+    private func callJS(_ body: String, arguments: [String: Any] = [:]) async throws -> Any? {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Any?, Error>) in
+            webView.callAsyncJavaScript(
+                body,
+                arguments: arguments,
+                in: nil,
+                in: WKContentWorld.page
+            ) { (value: Any?, error: Error?) in
+                if let error {
+                    cont.resume(throwing: error)
+                } else {
+                    cont.resume(returning: value)
+                }
             }
-            try? await Task.sleep(nanoseconds: 250_000_000)
         }
-        if isLive, await fireFunctionReady() {
-            ready = true
-            return nil
-        }
-        return pageError() ?? "H5 页未就绪（先登录，等商品页 wasm 起来）"
+    }
+
+    private func reinstallHooks() {
+        webView.evaluateJavaScript("window.__mt741hookCWB && window.__mt741hookCWB()") { _, _ in }
     }
 
     private func fireFunctionReady() async -> Bool {
@@ -242,9 +280,9 @@ final class H5Runtime: NSObject, ObservableObject {
 
 enum HiddenWebHost {
     private static let host: UIView = {
-        let view = UIView(frame: CGRect(x: 0, y: 0, width: 8, height: 8))
+        let view = UIView(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
         view.isUserInteractionEnabled = false
-        view.alpha = 0.02
+        view.alpha = 0.03
         view.clipsToBounds = true
         view.accessibilityIdentifier = "h5.hiddenHost"
         return view
@@ -257,6 +295,8 @@ enum HiddenWebHost {
         host.addSubview(webView)
         webView.frame = host.bounds
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        webView.isHidden = false
+        webView.alpha = 1
     }
 
     static func attachIfIdle(_ webView: WKWebView) {
@@ -272,7 +312,10 @@ enum HiddenWebHost {
         if host.superview !== window {
             window.insertSubview(host, at: 0)
         }
-        host.frame = CGRect(x: 0, y: 0, width: 8, height: 8)
+        let w = max(window.bounds.width, 375)
+        let h = max(window.bounds.height, 667)
+        host.frame = CGRect(x: 0, y: 0, width: w, height: h)
+        host.alpha = 0.03
     }
 
     private static var keyWindow: UIWindow? {
@@ -306,6 +349,7 @@ extension H5Runtime {
                 self.owner?.pageURL = webView.url?.absoluteString ?? ""
                 self.owner?.ready = self.owner?.isLive ?? false
                 self.owner?.keepInWindow()
+                webView.evaluateJavaScript("window.__mt741hookCWB && window.__mt741hookCWB()") { _, _ in }
             }
         }
 
