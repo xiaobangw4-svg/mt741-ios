@@ -11,7 +11,13 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(js.contains("__mt741hookStyle"))
         XCTAssertTrue(js.contains("__mt741liftStyle"))
         XCTAssertTrue(js.contains("e << 8"))
-        XCTAssertTrue(js.contains("delete Object.prototype.StyleTotal"))
+        XCTAssertTrue(js.contains("void u.offsetWidth"))
+        XCTAssertTrue(js.contains("_h<10000"))
+        XCTAssertTrue(StyleTotalPatch.loopFrom.contains("getComputedStyle(u)"))
+        XCTAssertTrue(StyleTotalPatch.loopTo.contains("_h<10000"))
+        XCTAssertFalse(js.contains("delete Object.prototype.StyleTotal"))
+        XCTAssertTrue(js.contains("hookStyleTotalAssign()"))
+        XCTAssertTrue(js.contains("Object.defineProperty"))
         XCTAssertEqual(H5PageStart.scripts.count, 3)
         XCTAssertTrue(H5PageStart.scripts[0].contains("__mt741hookStyle"))
         XCTAssertTrue(H5PageStart.scripts[1].contains("__mt741hookCWB"))
@@ -51,5 +57,17 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertEqual(StyleTotalPatch.lift(12, token: ""), UInt32(10012))
         XCTAssertEqual(StyleTotalPatch.lift(12, token: "0a"), UInt32(10012) + (UInt32(0x0A) << 8))
         XCTAssertEqual(StyleTotalPatch.hexPair("zz", offset: 0), 0)
+    }
+
+    func testStatusLabelFromProbeJSON() {
+        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: false), "Style未挂")
+        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true), "Style脚本在")
+        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 1, from: 0, patched: true), "Style抬位")
+        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 1, patched: true), "Style抬位")
+        XCTAssertEqual(
+            StyleTotalPatch.statusLabel(fromJSON: #"{"patched":true,"wrapped":1,"from":0}"#),
+            "Style抬位"
+        )
+        XCTAssertEqual(StyleTotalPatch.statusLabel(fromJSON: "nope"), "Style未挂")
     }
 }

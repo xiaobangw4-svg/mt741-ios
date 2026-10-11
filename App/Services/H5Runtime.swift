@@ -10,6 +10,7 @@ final class H5Runtime: NSObject, ObservableObject {
     @Published var ready = false
     @Published var pageURL = ""
     @Published var lastProbe = ""
+    @Published var styleStatus = "Style未挂"
 
     private var fingerprint = ""
     private var pendingJS: [String: CheckedContinuation<Any?, Error>] = [:]
@@ -22,7 +23,8 @@ final class H5Runtime: NSObject, ObservableObject {
             content.addUserScript(WKUserScript(
                 source: source,
                 injectionTime: .atDocumentStart,
-                forMainFrameOnly: false
+                forMainFrameOnly: false,
+                in: .page
             ))
         }
         content.add(proxy, name: CWBHook.handlerName)
@@ -444,7 +446,24 @@ extension H5Runtime {
                 self.owner?.pageURL = webView.url?.absoluteString ?? ""
                 self.owner?.ready = self.owner?.isLive ?? false
                 self.owner?.keepInWindow()
-                webView.evaluateJavaScript("window.__mt741hookStyle && window.__mt741hookStyle(); window.__mt741hookCWB && window.__mt741hookCWB()") { _, _ in }
+                webView.evaluateJavaScript(
+                    """
+                    (function(){
+                      var st = {};
+                      try { st = window.__mt741hookStyle ? window.__mt741hookStyle() : {}; } catch (e) { st.err = String(e); }
+                      try { window.__mt741hookCWB && window.__mt741hookCWB(); } catch (e) {}
+                      st.wrapped = window.__mt741styleWrapped || 0;
+                      st.from = window.__mt741styleFrom || 0;
+                      st.patched = !!window.__mt741stylePatched;
+                      return JSON.stringify(st);
+                    })()
+                    """
+                ) { result, _ in
+                    let raw = (result as? String) ?? ""
+                    DispatchQueue.main.async {
+                        self.owner?.styleStatus = StyleTotalPatch.statusLabel(fromJSON: raw)
+                    }
+                }
             }
         }
 

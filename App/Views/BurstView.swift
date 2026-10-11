@@ -207,7 +207,8 @@ struct BurstView: View {
         let h5 = h5Runtime.ready ? "H5就绪" : "H5未就绪"
         let cwbText = cwbStore.lengthText
         let sku = productStore.selected.sku
-        return "\(login) · \(h5) · \(cwbText) · sku \(sku) actId \(actId.isEmpty ? "无" : actId)"
+        let style = h5Runtime.styleStatus
+        return "\(login) · \(h5) · \(cwbText) · \(style) · sku \(sku) actId \(actId.isEmpty ? "无" : actId)"
     }
 
     private var usedCWB: String {
