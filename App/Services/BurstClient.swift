@@ -76,7 +76,7 @@ enum BurstClient {
         }
         let amount = String(describing: plain["amount"] ?? "")
         let actId = String(describing: plain["itemPriorityActId"] ?? "")
-        return (200, #"{"code":2000,"data":{"itemCode":"741","amount":"\#(amount)","itemPriorityActId":"\#(actId)","v":"0003"}}"#)
+        return (200, #"{"code":2000,"data":{"itemCode":"741","amount":"\#(amount)","itemPriorityActId":"\#(actId)","v":"0003","priorityRecordId":"99","hasGain":true}}"#)
     }
 
     static func burst(request: BurstRequest, session: Session) async -> BurstStats {
@@ -197,7 +197,7 @@ enum BurstClient {
                 ok: true,
                 status: http?.statusCode ?? 0,
                 ms: ms,
-                body: String(text.prefix(300))
+                body: String(text.prefix(800))
             )
         } catch {
             let ms = Date().timeIntervalSince(t0) * 1000

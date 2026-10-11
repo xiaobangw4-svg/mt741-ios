@@ -15,6 +15,10 @@ final class BurstClientTests: XCTestCase {
         XCTAssertEqual(stats.fail, 0)
         XCTAssertEqual(stats.status["200"], 8)
         XCTAssertTrue(stats.summary.contains("2000"))
+        let hit = RushHit.best(from: stats.shots)
+        XCTAssertEqual(hit?.priorityRecordId, "99")
+        XCTAssertTrue(hit?.canCompose == true)
+        XCTAssertTrue(hit?.orderId.isEmpty == true)
     }
 
     func testMockRejectsOtherSKU() {

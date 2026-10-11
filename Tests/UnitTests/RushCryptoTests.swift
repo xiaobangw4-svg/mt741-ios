@@ -22,6 +22,8 @@ final class RushCryptoTests: XCTestCase {
         XCTAssertFalse(body.contains("cardBindingPay"))
         XCTAssertTrue(body.contains("\"v\":\"0003\""))
         XCTAssertEqual(RushCrypto.decrypt(RushCrypto.encrypt(marshaled)), marshaled)
+        XCTAssertEqual(RushCrypto.orderKey.count, 32)
+        XCTAssertEqual(RushCrypto.orderIV.count, 16)
     }
 
     func testHeaderSkipsEmptyCWB() {

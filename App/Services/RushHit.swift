@@ -5,13 +5,15 @@ struct RushHit: Equatable {
     var message: String = ""
     var priorityRecordId: String = ""
     var orderId: String = ""
+    var shopId: String = ""
     var userVerifyStatus: Int?
     var hasGain: Bool = false
 
     var isHit: Bool { code == 2000 }
     var needsYidun: Bool {
-        code == 4025 || userVerifyStatus == 1 || (isHit && !priorityRecordId.isEmpty)
+        code == 4025 || userVerifyStatus == 1
     }
+    var canCompose: Bool { isHit && !priorityRecordId.isEmpty }
 
     static func parse(_ raw: String) -> RushHit {
         guard
@@ -37,6 +39,7 @@ struct RushHit: Equatable {
             message: (obj["message"] as? String) ?? "",
             priorityRecordId: text("priorityRecordId").isEmpty ? text("priorityUserRecordId") : text("priorityRecordId"),
             orderId: text("orderId"),
+            shopId: text("shopId"),
             userVerifyStatus: verify,
             hasGain: gain
         )

@@ -17,6 +17,9 @@ struct EnvironmentView: View {
                     row("异步请求", "n≤64，并发 1-16，间隔 0-2000ms")
                     row("易盾", "真机滑块 captchaId 741 → verify/code 或 ydToken 重发")
                     row("支付", "order/pay + requestPay channel=71 拉起支付宝")
+                    row("CWB", "H5 WKWebView 拦截 Content-Web-Bb，异步请求自动带上")
+                    row("actId", "purchaseInfoV2 POST hot+spuId=IMTP1000313")
+                    row("组单", "2000 后 v1 compose/submit 出 orderId")
                     row("SKU", Product.sku741.sku + " / " + Product.sku741.spu)
                 }
                 Section("本 App 没有") {

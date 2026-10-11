@@ -81,13 +81,14 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 
 - 商品页：741 / `IMTP1000313` / 飞天 500ml
 - 登录页：短信验证码，打 `app.moutai519.com.cn` 的 vcode / login；会话不保存 `idCode`
-- H5 页：WKWebView 打开官方 `h5.moutai519.com.cn`
+- H5 页：WKWebView 打开官方 `h5.moutai519.com.cn`，拦截 XHR/fetch 的 `Content-Web-Bb` 给异步请求用
+- 异步页：可拉当日 `purchaseInfoV2` actId；抢到 2000 后走 v1 `compose`/`submit` 出 `orderId` 再支付
 
 验证码 MD5 与 Windows 工具同一套盐：`md5(VCODE_SALT + mobile + timestamp)`。
 
 ## 测试
 
-- 逻辑：SKU 741、vcode MD5 夹具、MT-V 夹具、会话不含 idCode
+- 逻辑：SKU 741、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、CWB 拦截脚本、purchaseInfoV2 解析、compose 明文
 - UI：启动看到 741 商品卡；切到登录页看到输入框（`waitForExistence`，不用 sleep）
 
 改完代码只 push，以 CI 报告为准。

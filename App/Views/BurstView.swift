@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BurstView: View {
     @EnvironmentObject private var sessionStore: SessionStore
+    @EnvironmentObject private var cwbStore: CWBStore
     @State private var actId = "103783"
     @State private var amount = "1"
     @State private var n = "8"
@@ -11,6 +12,7 @@ struct BurstView: View {
     @State private var target = "mock"
     @State private var customURL = ""
     @State private var cwb = ""
+    @State private var shopId = ""
     @State private var ydToken = ""
     @State private var ydLogId = ""
     @State private var log = "默认本机回放。官方地址要显式选「官方 H5」。"
@@ -33,6 +35,12 @@ struct BurstView: View {
                     TextField("请求数 n（1-64）", text: $n)
                         .keyboardType(.numberPad)
                         .accessibilityIdentifier("burst.n")
+                    TextField("门店 shopId（可空）", text: $shopId)
+                        .textInputAutocapitalization(.never)
+                        .accessibilityIdentifier("burst.shopId")
+                    Button("拉取当日 actId") { Task { await fetchActId() } }
+                        .disabled(busy)
+                        .accessibilityIdentifier("burst.fetchAct")
                 }
                 Section("速度") {
                     Picker("档位", selection: $speed) {
@@ -73,6 +81,10 @@ struct BurstView: View {
                     SecureField("Content-Web-Bb", text: $cwb)
                         .textInputAutocapitalization(.never)
                         .accessibilityIdentifier("burst.cwb")
+                    Text(cwbStatus)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("burst.cwbStatus")
                 }
                 Section("易盾 / 支付") {
                     TextField("ydToken / validate", text: $ydToken)
@@ -102,6 +114,11 @@ struct BurstView: View {
                 }
             }
             .navigationTitle("异步")
+            .task {
+                if sessionStore.session.isLoggedIn {
+                    await fetchActId()
+                }
+            }
             .alert("打官方地址", isPresented: $confirmOfficial) {
                 Button("取消", role: .cancel) {}
                 Button("继续") { Task { await runBurst(BurstTarget.official) } }
@@ -148,6 +165,36 @@ struct BurstView: View {
         log = "sku=\(plain.itemCode) act=\(plain.itemPriorityActId) v=0003\nkeys=actParam,v\n\(body.prefix(240))"
     }
 
+    private var usedCWB: String {
+        let pasted = cwb.trimmingCharacters(in: .whitespacesAndNewlines)
+        return pasted.isEmpty ? cwbStore.cwb : pasted
+    }
+
+    private var cwbStatus: String {
+        if !cwb.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "使用粘贴的 CWB \(cwb.count) 字"
+        }
+        if !cwbStore.cwb.isEmpty {
+            return "使用 H5 捕获的 CWB \(cwbStore.cwb.count) 字"
+        }
+        return "还没有 CWB。先打开「H5」逛商品页，或粘贴。"
+    }
+
+    private func fetchActId() async {
+        let info = await CatalogClient.fetch(session: sessionStore.session)
+        if info.ok {
+            actId = info.actId
+            if !info.shopId.isEmpty {
+                shopId = info.shopId
+            }
+        }
+        if !busy {
+            log = info.ok
+                ? "purchaseInfoV2 actId=\(info.actId) sku=\(info.skuId)"
+                : "purchaseInfoV2 \(info.message)"
+        }
+    }
+
     private func runBurst(_ dest: BurstTarget) async {
         busy = true
         defer { busy = false }
@@ -157,7 +204,8 @@ struct BurstView: View {
             n: Int(n) ?? 8,
             concurrency: Int(concurrency) ?? 8,
             intervalMs: Int(interval) ?? 0,
-            cwb: cwb,
+            cwb: usedCWB,
+            shopId: shopId,
             ydToken: ydToken,
             ydLogId: ydLogId,
             target: dest
@@ -165,12 +213,33 @@ struct BurstView: View {
         log = "开始 \(dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=741"
         let stats = await BurstClient.burst(request: req, session: sessionStore.session)
         var extra = ""
-        if let hit = RushHit.best(from: stats.shots) {
-            lastHit = hit
+        if var hit = RushHit.best(from: stats.shots) {
             extra = "\n业务 code=\(hit.code.map(String.init) ?? "-") \(hit.message) record=\(hit.priorityRecordId) order=\(hit.orderId)"
+            if hit.shopId.isEmpty {
+                hit.shopId = shopId
+            } else if shopId.isEmpty {
+                shopId = hit.shopId
+            }
+            if hit.canCompose, hit.orderId.isEmpty {
+                let placed = await OrderClient.place(
+                    session: sessionStore.session,
+                    hit: hit,
+                    amount: amount,
+                    shopId: hit.shopId,
+                    mock: dest == .mock
+                )
+                extra += "\n\(placed.message)"
+                if !placed.orderId.isEmpty {
+                    hit.orderId = placed.orderId
+                    extra += " order=\(placed.orderId)"
+                }
+            }
+            lastHit = hit
             if dest != .mock {
                 if hit.needsYidun {
                     showYidun = true
+                } else if !hit.orderId.isEmpty {
+                    showPay = true
                 } else if hit.isHit {
                     showPay = true
                 }

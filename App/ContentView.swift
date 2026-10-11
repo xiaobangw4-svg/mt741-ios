@@ -47,4 +47,5 @@ enum AppTheme {
 #Preview {
     ContentView()
         .environmentObject(SessionStore())
+        .environmentObject(CWBStore())
 }
