@@ -17,6 +17,15 @@ final class MT741UITests: XCTestCase {
         XCTAssertTrue(title.label.contains("500ml"))
     }
 
+    func testEnvironmentTabShowsDevice() {
+        let app = XCUIApplication()
+        app.launch()
+        let envTab = app.tabBars.buttons["环境"]
+        XCTAssertTrue(envTab.waitForExistence(timeout: 10))
+        envTab.tap()
+        XCTAssertTrue(app.staticTexts["env.fk1"].waitForExistence(timeout: 8))
+    }
+
     func testLoginFormExists() {
         let app = XCUIApplication()
         app.launch()

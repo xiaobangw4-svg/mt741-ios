@@ -20,13 +20,18 @@ struct ContentView: View {
                 .tabItem { Label("H5", systemImage: "safari") }
                 .tag(AppTab.h5)
                 .accessibilityIdentifier("tab.h5")
+
+            EnvironmentView()
+                .tabItem { Label("环境", systemImage: "iphone") }
+                .tag(AppTab.env)
+                .accessibilityIdentifier("tab.env")
         }
         .tint(AppTheme.gold)
     }
 }
 
 enum AppTab: Hashable {
-    case product, login, h5
+    case product, login, h5, env
 }
 
 enum AppTheme {

@@ -46,11 +46,13 @@ final class SessionStore: ObservableObject {
         session.userName = result.userName
         session.token = result.token
         session.cookie = result.cookie
+        CookieBridge.apply(session)
     }
 
     func logout() {
         let device = session.deviceId
         session = Session(deviceId: device)
+        CookieBridge.apply(session)
     }
 
     func rotateDevice() {

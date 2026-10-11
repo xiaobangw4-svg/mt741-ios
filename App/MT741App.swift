@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct MT741App: App {
@@ -8,6 +9,10 @@ struct MT741App: App {
         WindowGroup {
             ContentView()
                 .environmentObject(sessionStore)
+                .onAppear {
+                    UIApplication.shared.isIdleTimerDisabled = true
+                    CookieBridge.apply(sessionStore.session)
+                }
         }
     }
 }
