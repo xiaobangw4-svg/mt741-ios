@@ -24,6 +24,7 @@ struct BurstView: View {
     @State private var showYidun = false
     @State private var showPay = false
     @State private var lastHit = RushHit()
+    @State private var lastSku = Product.sku741.sku
 
     var body: some View {
         NavigationStack {
@@ -132,7 +133,12 @@ struct BurstView: View {
             }
             .navigationTitle("异步")
             .task(id: productStore.selected.sku) {
-                amount = productStore.selected.defaultAmount
+                let product = productStore.selected
+                amount = product.defaultAmount
+                if lastSku != product.sku {
+                    actId = ""
+                    lastSku = product.sku
+                }
             }
             .alert("H5 页内出单", isPresented: $confirmH5) {
                 Button("取消", role: .cancel) {}
@@ -195,7 +201,8 @@ struct BurstView: View {
         let login = sessionStore.session.isLoggedIn ? "已登录" : "未登录"
         let h5 = h5Runtime.ready ? "H5就绪" : "H5未就绪"
         let cwbText = cwbStore.lengthText
-        return "\(login) · \(h5) · \(cwbText) · actId \(actId.isEmpty ? "无" : actId)"
+        let sku = productStore.selected.sku
+        return "\(login) · \(h5) · \(cwbText) · sku \(sku) actId \(actId.isEmpty ? "无" : actId)"
     }
 
     private var usedCWB: String {

@@ -55,6 +55,40 @@ final class CatalogClientTests: XCTestCase {
         XCTAssertEqual(info.skuId, "10193")
     }
 
+    func testParseRealShopKeyedMapDoesNotCrossSKU() {
+        let json: [String: Any] = [
+            "code": 2000,
+            "data": [
+                "purchaseInfoMap": [
+                    "1001017": [
+                        "defaultSkuFlag": true,
+                        "purchaseInfo": [
+                            "skuId": "741",
+                            "itemPriorityActId": 104193,
+                            "limitCount": 6,
+                        ],
+                    ],
+                    "1000139": [
+                        "defaultSkuFlag": true,
+                        "purchaseInfo": [
+                            "skuId": "10193",
+                            "itemPriorityActId": 87183,
+                            "limitCount": 40,
+                        ],
+                    ],
+                ],
+            ],
+        ]
+        let ft500 = CatalogClient.parse(json, sku: "741")
+        XCTAssertEqual(ft500.actId, "104193")
+        XCTAssertEqual(ft500.skuId, "741")
+        XCTAssertEqual(ft500.shopId, "1001017")
+        let ft100 = CatalogClient.parse(json, sku: "10193")
+        XCTAssertEqual(ft100.actId, "87183")
+        XCTAssertEqual(ft100.skuId, "10193")
+        XCTAssertEqual(ft100.shopId, "1000139")
+    }
+
     func testParseEmptyMapExplainsNoActId() {
         let json: [String: Any] = ["code": 2000, "data": ["purchaseInfoMap": [:]]]
         let info = CatalogClient.parse(json)

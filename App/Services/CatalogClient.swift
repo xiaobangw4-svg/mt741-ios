@@ -19,18 +19,21 @@ enum CatalogClient {
         }
         let data = JSONText.object(json["data"])
         let map = JSONText.object(data["purchaseInfoMap"])
-        let preferred = JSONText.object(map[sku])
-        let candidates: [[String: Any]] = [preferred] + map.values.compactMap { $0 as? [String: Any] }
-        for row in candidates {
+        for (key, raw) in map {
+            guard let row = raw as? [String: Any] else { continue }
             let info = JSONText.object(row["purchaseInfo"]).isEmpty ? row : JSONText.object(row["purchaseInfo"])
             let act = JSONText.string(info["itemPriorityActId"])
-            if !act.isEmpty, act != "0" {
+            guard !act.isEmpty, act != "0" else { continue }
+            let skuId = JSONText.string(info["skuId"])
+            let shop = JSONText.string(info["shopId"]).isEmpty ? key : JSONText.string(info["shopId"])
+            let hit = skuId == sku || key == sku
+            if hit {
                 return PurchaseInfo(
                     ok: true,
                     actId: act,
-                    skuId: JSONText.string(info["skuId"]).isEmpty ? sku : JSONText.string(info["skuId"]),
-                    shopId: JSONText.string(info["shopId"]),
-                    message: "actId=\(act)"
+                    skuId: skuId.isEmpty ? sku : skuId,
+                    shopId: shop,
+                    message: "actId=\(act) sku=\(skuId.isEmpty ? sku : skuId)"
                 )
             }
         }
@@ -40,7 +43,12 @@ enum CatalogClient {
     static func fetch(session: Session, product: Product = .sku741) async -> PurchaseInfo {
         let body: [String: Any] = ["hot": true, "spuId": product.spu]
         do {
-            let json = try await postJSON(url: purchaseInfoURL, body: body, session: session)
+            let json = try await postJSON(
+                url: purchaseInfoURL,
+                body: body,
+                session: session,
+                referer: product.h5URL.absoluteString
+            )
             return parse(json, sku: product.sku)
         } catch {
             return PurchaseInfo(ok: false, message: AuthClient.describe(error))
@@ -82,15 +90,15 @@ enum CatalogClient {
         }
     }
 
-    private static func postJSON(url: URL, body: [String: Any], session: Session) async throws -> [String: Any] {
-        try await h5JSON(url: url, method: "POST", body: try JSONSerialization.data(withJSONObject: body), session: session)
+    private static func postJSON(url: URL, body: [String: Any], session: Session, referer: String = HeaderBuilder.referer) async throws -> [String: Any] {
+        try await h5JSON(url: url, method: "POST", body: try JSONSerialization.data(withJSONObject: body), session: session, referer: referer)
     }
 
     private static func getJSON(url: URL, session: Session) async throws -> [String: Any] {
         try await h5JSON(url: url, method: "GET", body: nil, session: session)
     }
 
-    private static func h5JSON(url: URL, method: String, body: Data?, session: Session) async throws -> [String: Any] {
+    private static func h5JSON(url: URL, method: String, body: Data?, session: Session, referer: String = HeaderBuilder.referer) async throws -> [String: Any] {
         let token = session.cookie.isEmpty ? session.token : session.cookie
         let mtK = String(Int64(Date().timeIntervalSince1970 * 1000))
         let mtV = AuthDigest.mtV(
@@ -109,7 +117,8 @@ enum CatalogClient {
             token: token,
             mtK: mtK,
             mtV: mtV,
-            cwb: ""
+            cwb: "",
+            referer: referer
         ) {
             request.setValue(value, forHTTPHeaderField: key)
         }
