@@ -8,7 +8,7 @@ final class CWBHookTests: XCTestCase {
         XCTAssertTrue(CWBHook.javaScript.contains("content-web-bb"))
         XCTAssertTrue(CWBHook.javaScript.contains("messageHandlers.cwb"))
         XCTAssertTrue(CWBHook.javaScript.contains("window.fetch"))
-        XCTAssertTrue(CWBHook.javaScript.contains("Headers.prototype.set"))
+        XCTAssertTrue(CWBHook.javaScript.contains("Hs.prototype.set"))
         XCTAssertTrue(CWBHook.javaScript.contains("__mt741hookCWB"))
         XCTAssertEqual(CWBHook.handlerName, "cwb")
     }
