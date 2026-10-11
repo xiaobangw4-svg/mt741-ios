@@ -13,6 +13,7 @@ struct BurstStats: Equatable {
     var url: String
     var n: Int
     var concurrency: Int
+    var intervalMs: Int
     var sku: String
     var elapsedMs: Double
     var ok: Int
@@ -40,6 +41,7 @@ struct BurstRequest: Equatable {
     var amount: String = "1"
     var n: Int = 8
     var concurrency: Int = 8
+    var intervalMs: Int = 0
     var cwb: String = ""
     var shopId: String = ""
     var target: BurstTarget = .mock
@@ -48,6 +50,7 @@ struct BurstRequest: Equatable {
 enum BurstClient {
     static func clampN(_ n: Int) -> Int { min(64, max(1, n)) }
     static func clampC(_ c: Int) -> Int { min(16, max(1, c)) }
+    static func clampInterval(_ ms: Int) -> Int { min(2000, max(0, ms)) }
 
     static func mockHandle(body: String) -> (Int, String) {
         guard
@@ -76,6 +79,7 @@ enum BurstClient {
     static func burst(request: BurstRequest, session: Session) async -> BurstStats {
         let n = clampN(request.n)
         let c = clampC(request.concurrency)
+        let interval = clampInterval(request.intervalMs)
         let token = session.cookie.isEmpty ? session.token : session.cookie
         let plain = RushPlain(
             amount: request.amount.isEmpty ? "1" : request.amount,
@@ -91,6 +95,10 @@ enum BurstClient {
         await withTaskGroup(of: BurstShot.self) { group in
             for i in 0..<n {
                 group.addTask {
+                    if interval > 0, i > 0 {
+                        let ns = UInt64(i) * UInt64(interval) * 1_000_000
+                        try? await Task.sleep(nanoseconds: ns)
+                    }
                     await gate.acquire()
                     let shot = await one(
                         idx: i,
@@ -124,6 +132,7 @@ enum BurstClient {
             url: request.target.urlString,
             n: n,
             concurrency: c,
+            intervalMs: interval,
             sku: plain.itemCode,
             elapsedMs: (elapsed * 100).rounded() / 100,
             ok: ok,

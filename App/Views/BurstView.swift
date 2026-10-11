@@ -6,6 +6,8 @@ struct BurstView: View {
     @State private var amount = "1"
     @State private var n = "8"
     @State private var concurrency = "8"
+    @State private var interval = "0"
+    @State private var speed = "fast"
     @State private var target = "mock"
     @State private var customURL = ""
     @State private var cwb = ""
@@ -26,9 +28,29 @@ struct BurstView: View {
                     TextField("请求数 n（1-64）", text: $n)
                         .keyboardType(.numberPad)
                         .accessibilityIdentifier("burst.n")
+                }
+                Section("速度") {
+                    Picker("档位", selection: $speed) {
+                        Text("最快").tag("max")
+                        Text("快").tag("fast")
+                        Text("中").tag("mid")
+                        Text("慢").tag("slow")
+                        Text("自定义").tag("custom")
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("burst.speed")
+                    .onChange(of: speed) { _, value in
+                        applySpeed(value)
+                    }
                     TextField("并发 c（1-16）", text: $concurrency)
                         .keyboardType(.numberPad)
                         .accessibilityIdentifier("burst.c")
+                    TextField("间隔 ms（0-2000）", text: $interval)
+                        .keyboardType(.numberPad)
+                        .accessibilityIdentifier("burst.interval")
+                    Text("间隔是相邻请求的启动间隔。0=拉满，只受并发限制。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 Section("目标") {
                     Picker("目标", selection: $target) {
@@ -102,11 +124,31 @@ struct BurstView: View {
             amount: amount,
             n: Int(n) ?? 8,
             concurrency: Int(concurrency) ?? 8,
+            intervalMs: Int(interval) ?? 0,
             cwb: cwb,
             target: dest
         )
-        log = "开始 \(dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) sku=741"
+        log = "开始 \(dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=741"
         let stats = await BurstClient.burst(request: req, session: sessionStore.session)
-        log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms status=\(stats.status)\n\(stats.summary)"
+        log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)"
+    }
+
+    private func applySpeed(_ value: String) {
+        switch value {
+        case "max":
+            concurrency = "16"
+            interval = "0"
+        case "fast":
+            concurrency = "8"
+            interval = "0"
+        case "mid":
+            concurrency = "4"
+            interval = "50"
+        case "slow":
+            concurrency = "2"
+            interval = "200"
+        default:
+            break
+        }
     }
 }

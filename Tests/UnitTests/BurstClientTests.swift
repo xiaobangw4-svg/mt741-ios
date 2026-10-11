@@ -30,5 +30,18 @@ final class BurstClientTests: XCTestCase {
         XCTAssertEqual(BurstClient.clampN(99), 64)
         XCTAssertEqual(BurstClient.clampC(0), 1)
         XCTAssertEqual(BurstClient.clampC(32), 16)
+        XCTAssertEqual(BurstClient.clampInterval(-1), 0)
+        XCTAssertEqual(BurstClient.clampInterval(5000), 2000)
+    }
+
+    func testIntervalStaggersStarts() async {
+        let session = Session(deviceId: "DEV-1", userId: "9", token: "t")
+        let stats = await BurstClient.burst(
+            request: BurstRequest(actId: "103783", n: 3, concurrency: 16, intervalMs: 80, target: .mock),
+            session: session
+        )
+        XCTAssertEqual(stats.ok, 3)
+        XCTAssertEqual(stats.intervalMs, 80)
+        XCTAssertGreaterThanOrEqual(stats.elapsedMs, 140)
     }
 }
