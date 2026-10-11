@@ -67,9 +67,10 @@ enum StyleTotalSDK {
         }
     }
 
+    @MainActor
     static func loadContentRules() async -> WKContentRuleList? {
         let json = contentRuleJSON
-        let store = WKContentRuleListStore.default()
+        guard let store = WKContentRuleListStore.default() else { return nil }
         if let existing = await lookupRules(store) {
             return existing
         }
@@ -83,6 +84,7 @@ enum StyleTotalSDK {
         }
     }
 
+    @MainActor
     private static func lookupRules(_ store: WKContentRuleListStore) async -> WKContentRuleList? {
         await withCheckedContinuation { cont in
             store.lookUpContentRuleList(forIdentifier: ruleIdentifier) { list, _ in
