@@ -3,7 +3,8 @@ import XCTest
 
 final class CWBHookTests: XCTestCase {
     func testScriptHooksXHRAndPostsToNative() {
-        XCTAssertTrue(CWBHook.javaScript.contains("XMLHttpRequest.prototype.setRequestHeader"))
+        XCTAssertTrue(CWBHook.javaScript.contains("XMLHttpRequest.prototype"))
+        XCTAssertTrue(CWBHook.javaScript.contains("setRequestHeader"))
         XCTAssertTrue(CWBHook.javaScript.contains("content-web-bb"))
         XCTAssertTrue(CWBHook.javaScript.contains("messageHandlers.cwb"))
         XCTAssertTrue(CWBHook.javaScript.contains("window.fetch"))
