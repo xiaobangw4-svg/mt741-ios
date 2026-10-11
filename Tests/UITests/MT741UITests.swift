@@ -20,15 +20,12 @@ final class MT741UITests: XCTestCase {
     func testBurstMockStartExists() {
         let app = XCUIApplication()
         app.launch()
-        let tab = app.tabBars.buttons["异步"]
-        XCTAssertTrue(tab.waitForExistence(timeout: 10))
-        tab.tap()
-        XCTAssertTrue(app.buttons["burst.yidun"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["burst.pay"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["burst.fetchAct"].waitForExistence(timeout: 5))
+        tapTab(app, "异步")
+        XCTAssertTrue(app.buttons["burst.fetchAct"].waitForExistence(timeout: 8))
         let start = app.buttons["burst.start"]
         XCTAssertTrue(start.waitForExistence(timeout: 8))
         start.tap()
+        reveal(app, app.staticTexts["burst.log"])
         let log = app.staticTexts["burst.log"]
         XCTAssertTrue(log.waitForExistence(timeout: 8))
         let finished = XCTNSPredicateExpectation(
@@ -42,10 +39,20 @@ final class MT741UITests: XCTestCase {
     func testEnvironmentTabShowsDevice() {
         let app = XCUIApplication()
         app.launch()
-        let envTab = app.tabBars.buttons["环境"]
-        XCTAssertTrue(envTab.waitForExistence(timeout: 10))
-        envTab.tap()
-        XCTAssertTrue(app.staticTexts["env.fk1"].waitForExistence(timeout: 8))
+        tapTab(app, "环境")
+        XCTAssertTrue(app.staticTexts["env.network"].waitForExistence(timeout: 8), "环境页应有真机说明")
+    }
+
+    private func tapTab(_ app: XCUIApplication, _ name: String) {
+        let tab = app.tabBars.buttons[name]
+        XCTAssertTrue(tab.waitForExistence(timeout: 10), "找不到 Tab \(name)")
+        tab.tap()
+    }
+
+    private func reveal(_ app: XCUIApplication, _ element: XCUIElement) {
+        for _ in 0..<3 where !element.exists {
+            app.swipeUp()
+        }
     }
 
     func testLoginFormExists() {

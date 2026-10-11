@@ -42,6 +42,14 @@ struct BurstView: View {
                         .disabled(busy)
                         .accessibilityIdentifier("burst.fetchAct")
                 }
+                Section {
+                    Button(busy ? "请求中…" : "开始异步请求") { start() }
+                        .disabled(busy || actId.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityIdentifier("burst.start")
+                    Button("只生成 body") { dryRun() }
+                        .disabled(busy)
+                        .accessibilityIdentifier("burst.dry")
+                }
                 Section("速度") {
                     Picker("档位", selection: $speed) {
                         Text("最快").tag("max")
@@ -97,14 +105,6 @@ struct BurstView: View {
                         .accessibilityIdentifier("burst.yidun")
                     Button("打开支付") { showPay = true }
                         .accessibilityIdentifier("burst.pay")
-                }
-                Section {
-                    Button(busy ? "请求中…" : "开始异步请求") { start() }
-                        .disabled(busy || actId.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .accessibilityIdentifier("burst.start")
-                    Button("只生成 body") { dryRun() }
-                        .disabled(busy)
-                        .accessibilityIdentifier("burst.dry")
                 }
                 Section("日志") {
                     Text(log)
