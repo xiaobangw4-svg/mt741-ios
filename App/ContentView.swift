@@ -11,6 +11,11 @@ struct ContentView: View {
                 .tag(AppTab.product)
                 .accessibilityIdentifier("tab.product")
 
+            BurstView()
+                .tabItem { Label("异步", systemImage: "bolt") }
+                .tag(AppTab.burst)
+                .accessibilityIdentifier("tab.burst")
+
             LoginView()
                 .tabItem { Label("登录", systemImage: "person.crop.circle") }
                 .tag(AppTab.login)
@@ -31,7 +36,7 @@ struct ContentView: View {
 }
 
 enum AppTab: Hashable {
-    case product, login, h5, env
+    case product, burst, login, h5, env
 }
 
 enum AppTheme {

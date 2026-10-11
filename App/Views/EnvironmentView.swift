@@ -14,6 +14,7 @@ struct EnvironmentView: View {
                 Section("已接入") {
                     row("短信登录", "app.moutai519.com.cn vcode/login")
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
+                    row("异步请求", "本机回放 / 自定义 / 官方，n≤64 c≤16")
                     row("SKU", Product.sku741.sku + " / " + Product.sku741.spu)
                 }
                 Section("本 App 没有") {

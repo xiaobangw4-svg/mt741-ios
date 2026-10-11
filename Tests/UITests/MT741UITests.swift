@@ -17,6 +17,25 @@ final class MT741UITests: XCTestCase {
         XCTAssertTrue(title.label.contains("500ml"))
     }
 
+    func testBurstMockStartExists() {
+        let app = XCUIApplication()
+        app.launch()
+        let tab = app.tabBars.buttons["异步"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 10))
+        tab.tap()
+        let start = app.buttons["burst.start"]
+        XCTAssertTrue(start.waitForExistence(timeout: 8))
+        start.tap()
+        let log = app.staticTexts["burst.log"]
+        XCTAssertTrue(log.waitForExistence(timeout: 8))
+        let finished = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", "完成"),
+            object: log
+        )
+        wait(for: [finished], timeout: 8)
+        XCTAssertTrue(log.label.contains("ok="), "日志应有异步结果，实际：\(log.label)")
+    }
+
     func testEnvironmentTabShowsDevice() {
         let app = XCUIApplication()
         app.launch()
