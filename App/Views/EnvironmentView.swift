@@ -20,7 +20,7 @@ struct EnvironmentView: View {
                     row("注销", "APP register/cancel，需重复手机号确认，不可逆")
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
                     row("异步请求", "n≤64，并发 1-16，间隔 0-2000ms")
-                    row("易盾", "4025 调电脑 8889 自动过点图，失败再弹手动滑块")
+                    row("易盾", "4025 走远程上号 ngrok 打电脑 8889；连不上弹官网点图")
                     row("支付", "order/pay + requestPay channel=71 拉起支付宝")
                     row("CWB", "H5 WKWebView 拦截 Content-Web-Bb，异步请求自动带上")
                     row("actId", "purchaseInfoV2 POST hot+spuId=\(productStore.selected.spu)")

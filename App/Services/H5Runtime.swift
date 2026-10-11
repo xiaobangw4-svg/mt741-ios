@@ -212,6 +212,36 @@ final class H5Runtime: NSObject, ObservableObject {
         }
     }
 
+    func verifyCode(validate: String, priorityRecordId: String, session: Session, product: Product) async -> String {
+        let trimmed = validate.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rid = priorityRecordId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "validate 为空，先完成点选" }
+        if rid.isEmpty { return "没有 priorityRecordId，点选结果会写入 ydToken，下次异步带上重发" }
+        let bodyObj: [String: Any] = [
+            "captchaId": YidunClient.captchaId741,
+            "validate": trimmed,
+            "priorityUserRecordId": rid,
+        ]
+        let body = String(data: (try? JSONSerialization.data(withJSONObject: bodyObj)) ?? Data(), encoding: .utf8) ?? ""
+        do {
+            let json = try await requestJSON(
+                method: "POST",
+                url: YidunClient.verifyURL.absoluteString,
+                body: body,
+                session: session,
+                timeoutMs: 12000,
+                product: product
+            )
+            let code = AuthClient.jsonCode(json)
+            if code == 2000 {
+                return "易盾已提交 code=2000"
+            }
+            return (json["message"] as? String) ?? "verify code=\(code.map(String.init) ?? "nil")"
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     func cookieValue(_ name: String) async -> String {
         await withCheckedContinuation { cont in
             webView.configuration.websiteDataStore.httpCookieStore.getAllCookies { cookies in

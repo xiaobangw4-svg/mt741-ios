@@ -7,8 +7,8 @@ enum YidunClient {
     static func verify(validate: String, priorityRecordId: String, session: Session, captchaId: String = captchaId741, gdxid: String = "") async -> String {
         let trimmed = validate.trimmingCharacters(in: .whitespacesAndNewlines)
         let rid = priorityRecordId.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return "validate 为空，先滑块" }
-        if rid.isEmpty { return "没有 priorityRecordId，滑块结果会写入 ydToken，下次异步带上重发" }
+        if trimmed.isEmpty { return "validate 为空，先完成点选" }
+        if rid.isEmpty { return "没有 priorityRecordId，点选结果会写入 ydToken，下次异步带上重发" }
         let bodyObj: [String: Any] = [
             "captchaId": captchaId,
             "validate": trimmed,

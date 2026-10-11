@@ -15,8 +15,18 @@ final class YidunSolverTests: XCTestCase {
             YidunSolver.normalize("http://192.168.1.8:8889/api/verify")?.absoluteString,
             "http://192.168.1.8:8889/api/verify"
         )
+        XCTAssertEqual(
+            YidunSolver.normalize("https://example.ngrok-free.dev/add")?.absoluteString,
+            "https://example.ngrok-free.dev/api/verify"
+        )
+        XCTAssertEqual(
+            YidunSolver.normalize("https://example.ngrok-free.dev")?.absoluteString,
+            "https://example.ngrok-free.dev/api/verify"
+        )
+        XCTAssertTrue(YidunSolver.isConfigured("https://example.ngrok-free.dev/add"))
         XCTAssertNil(YidunSolver.normalize("  "))
         XCTAssertNil(YidunSolver.normalize(""))
+        XCTAssertFalse(YidunSolver.isConfigured(""))
     }
 
     func testRequestJSONMatchesDesktop8889() {
@@ -77,8 +87,16 @@ final class YidunSolverTests: XCTestCase {
             gdxid: ""
         )
         XCTAssertFalse(got.ok)
-        XCTAssertEqual(got.message, "没填电脑 8889 地址")
+        XCTAssertEqual(got.message, "没填远程上号地址")
         XCTAssertTrue(got.token.isEmpty)
+    }
+
+    func testOfficialPopupHtml() {
+        let html = YidunWidget.html()
+        XCTAssertTrue(html.contains(YidunClient.captchaId741))
+        XCTAssertTrue(html.contains("mode: \"popup\""))
+        XCTAssertTrue(html.contains("popUp()"))
+        XCTAssertTrue(html.contains("安全验证"))
     }
 
     func testCookieCarriesGdxidWhenPresent() {

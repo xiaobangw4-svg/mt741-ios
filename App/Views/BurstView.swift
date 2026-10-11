@@ -27,6 +27,8 @@ struct BurstView: View {
     @State private var lastHit = RushHit()
     @State private var lastSku = Product.sku741.sku
     @State private var fetchHint = ""
+    @State private var pendingRetryDest: BurstTarget?
+    @State private var yidunEpoch = 0
 
     var body: some View {
         NavigationStack {
@@ -119,14 +121,14 @@ struct BurstView: View {
                         .accessibilityIdentifier("burst.cwbStatus")
                 }
                 Section("易盾 / 支付") {
-                    TextField("电脑 8889，如 http://192.168.1.8:8889", text: $solverURL)
+                    TextField("远程上号 ngrok，如 https://xxxx.ngrok-free.dev", text: $solverURL)
                         .textInputAutocapitalization(.never)
                         .keyboardType(.URL)
                         .accessibilityIdentifier("burst.solver")
                         .onChange(of: solverURL) { _, value in
                             YidunSolver.storedURL = value
                         }
-                    Text("4025 时自动调电脑一键启动的 8889 过点图。电脑和手机同一 Wi-Fi，求解窗口开着。解失败再弹手动滑块。")
+                    Text("抢购走本机流量。4025 用远程上号同一条 ngrok 打电脑 8889 自动过点图；连不上立刻弹官网点选，手点即可。不用开 Wi-Fi。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     TextField("ydToken / validate", text: $ydToken)
@@ -135,7 +137,7 @@ struct BurstView: View {
                     TextField("ydLogId", text: $ydLogId)
                         .textInputAutocapitalization(.never)
                         .accessibilityIdentifier("burst.ydLogId")
-                    Button("打开易盾滑块") { showYidun = true }
+                    Button("打开易盾点图") { showYidun = true }
                         .accessibilityIdentifier("burst.yidun")
                     Button("打开支付") { showPay = true }
                         .accessibilityIdentifier("burst.pay")
@@ -168,12 +170,12 @@ struct BurstView: View {
             } message: {
                 Text("URLSession 直连，没有页内 wasm 现签。真机出单请用「H5出单」。")
             }
-            .sheet(isPresented: $showYidun) {
+            .fullScreenCover(isPresented: $showYidun) {
                 YidunSheet(
-                    session: sessionStore.session,
                     priorityRecordId: lastHit.priorityRecordId
-                ) { value in
+                ) { value, fp in
                     ydToken = value
+                    Task { await finishManualYidun(validate: value, fp: fp) }
                 }
             }
             .sheet(isPresented: $showPay) {
@@ -378,18 +380,30 @@ struct BurstView: View {
             }
             var yidunPassed = false
             if dest != .mock, hit.needsYidun {
-                let passed = await passYidun(hit: hit, product: product)
-                extra += "\n\(passed.message)"
-                if passed.ok {
-                    yidunPassed = true
-                    ydToken = passed.token
-                    if allowYidunRetry, hit.code == 4025 {
-                        log = "易盾已过，带 ydToken 再打一枪…\n\(stats.summary)\(extra)"
-                        await executeBurst(dest, allowYidunRetry: false)
-                        return
+                lastHit = hit
+                pendingRetryDest = dest
+                yidunEpoch += 1
+                let epoch = yidunEpoch
+                showYidun = true
+                extra += "\n4025 已弹官网点图；远程上号隧道自动过点图并行"
+                if YidunSolver.isConfigured(solverURL) {
+                    let passed = await passYidun(hit: hit, product: product)
+                    extra += "\n\(passed.message)"
+                    if epoch == yidunEpoch, passed.ok {
+                        showYidun = false
+                        pendingRetryDest = nil
+                        yidunPassed = true
+                        ydToken = passed.token
+                        if allowYidunRetry, hit.code == 4025 {
+                            log = "易盾已过（远程 8889），带 ydToken 再打一枪…\n\(stats.summary)\(extra)"
+                            await executeBurst(dest, allowYidunRetry: false)
+                            return
+                        }
                     }
-                } else {
-                    showYidun = true
+                }
+                if !yidunPassed {
+                    log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)\n请在弹层完成点选（本机流量）"
+                    return
                 }
             }
             if hit.canCompose, hit.orderId.isEmpty, (!hit.needsYidun || yidunPassed) {
@@ -439,22 +453,54 @@ struct BurstView: View {
         if !solved.ok {
             return solved
         }
-        let fp = solved.fp.isEmpty ? gdx : solved.fp
-        if !hit.priorityRecordId.isEmpty {
-            let submitted = await YidunClient.verify(
-                validate: solved.token,
-                priorityRecordId: hit.priorityRecordId,
+        return await submitYidun(token: solved.token, fp: solved.fp.isEmpty ? gdx : solved.fp, recordId: hit.priorityRecordId, product: product, prefix: solved.message)
+    }
+
+    private func submitYidun(token: String, fp: String, recordId: String, product: Product, prefix: String) async -> YidunSolver.Result {
+        if recordId.isEmpty {
+            return YidunSolver.Result(ok: true, token: token, fp: fp, message: prefix)
+        }
+        let submitted: String
+        if h5Runtime.ready {
+            submitted = await h5Runtime.verifyCode(
+                validate: token,
+                priorityRecordId: recordId,
+                session: sessionStore.session,
+                product: product
+            )
+        } else {
+            submitted = await YidunClient.verify(
+                validate: token,
+                priorityRecordId: recordId,
                 session: sessionStore.session,
                 gdxid: fp
             )
-            return YidunSolver.Result(
-                ok: true,
-                token: solved.token,
-                fp: fp,
-                message: solved.message + "；" + submitted
-            )
         }
-        return solved
+        return YidunSolver.Result(
+            ok: true,
+            token: token,
+            fp: fp,
+            message: prefix + "；" + submitted
+        )
+    }
+
+    private func finishManualYidun(validate: String, fp: String) async {
+        yidunEpoch += 1
+        busy = true
+        defer { busy = false }
+        let product = productStore.selected
+        let gdx = fp.isEmpty ? await h5Runtime.cookieValue("gdxidpyhxdE") : fp
+        let submitted = await submitYidun(
+            token: validate,
+            fp: gdx,
+            recordId: lastHit.priorityRecordId,
+            product: product,
+            prefix: "官网点选已完成"
+        )
+        log = submitted.message
+        let dest = pendingRetryDest ?? .h5Page
+        pendingRetryDest = nil
+        await executeBurst(dest, allowYidunRetry: false)
     }
 
     private func applySpeed(_ value: String) {

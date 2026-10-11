@@ -1,9 +1,10 @@
 import Foundation
 
-/// Calls the PC 8889 click/slider solver (same JSON as the desktop `/api/verify`).
-/// The iPhone does not run OCR; fill the LAN URL while 一键启动 is up.
+/// PC 8889 solver over the remote-login tunnel (ngrok/cloudflared), same JSON as desktop `/api/verify`.
+/// Rush stays on the phone's default path (cellular). Paste the 远程上号 URL; `/add` is stripped.
 enum YidunSolver {
     static let defaultsKey = "mt741.yidunSolverURL"
+    static let remoteTimeout: TimeInterval = 60
 
     struct Result: Equatable {
         var ok: Bool
@@ -25,6 +26,12 @@ enum YidunSolver {
         }
         if s.hasSuffix("/") {
             s.removeLast()
+        }
+        if s.lowercased().hasSuffix("/add") {
+            s = String(s.dropLast(4))
+            if s.hasSuffix("/") {
+                s.removeLast()
+            }
         }
         if !s.lowercased().contains("/api/verify") {
             s += "/api/verify"
@@ -81,6 +88,10 @@ enum YidunSolver {
         return Result(ok: false, token: "", fp: fp, message: hint)
     }
 
+    static func isConfigured(_ raw: String) -> Bool {
+        normalize(raw) != nil
+    }
+
     static func solve(
         endpoint: String,
         captchaId: String,
@@ -88,15 +99,18 @@ enum YidunSolver {
         priorityRecordId: String,
         deviceId: String,
         userAgent: String,
-        gdxid: String
+        gdxid: String,
+        timeout: TimeInterval = remoteTimeout
     ) async -> Result {
         guard let url = normalize(endpoint) else {
-            return Result(ok: false, token: "", fp: "", message: "没填电脑 8889 地址")
+            return Result(ok: false, token: "", fp: "", message: "没填远程上号地址")
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 60
+        request.timeoutInterval = timeout
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("1", forHTTPHeaderField: "ngrok-skip-browser-warning")
+        request.setValue("MT741/1.0", forHTTPHeaderField: "User-Agent")
         let body = requestJSON(
             captchaId: captchaId,
             pageUrl: pageUrl,
