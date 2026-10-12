@@ -10,6 +10,8 @@ final class CWBHookTests: XCTestCase {
         XCTAssertTrue(CWBHook.javaScript.contains("window.fetch"))
         XCTAssertTrue(CWBHook.javaScript.contains("Hs.prototype.set"))
         XCTAssertTrue(CWBHook.javaScript.contains("__mt741hookCWB"))
+        XCTAssertTrue(CWBHook.javaScript.contains("purchaseInfoV2"))
+        XCTAssertTrue(CWBHook.javaScript.contains("__mt741purchaseInfo"))
         XCTAssertEqual(CWBHook.handlerName, "cwb")
     }
 

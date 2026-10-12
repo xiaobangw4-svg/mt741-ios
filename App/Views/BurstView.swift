@@ -259,8 +259,9 @@ struct BurstView: View {
             product: product,
             forceLoad: !h5Runtime.isLive
         )
-        if sessionStore.session.isLoggedIn, !h5Runtime.ready {
-            _ = await h5Runtime.waitUntilLive(seconds: 6)
+        if sessionStore.session.isLoggedIn {
+            _ = await h5Runtime.waitUntilLive(seconds: 8)
+            _ = await h5Runtime.waitForCWB(seconds: 8)
         }
         let pulled = await pullActId(product: product)
         applyActId(pulled.0, product: product, via: pulled.1)
@@ -276,8 +277,7 @@ struct BurstView: View {
                 return (info, via)
             }
             via = "URLSession"
-            fetchHint = "H5 拉号失败：\(info.message)，改走 URLSession"
-            log = fetchHint
+            log = "H5 未拿到（\(info.message)），改走 URLSession"
         }
         info = await CatalogClient.fetch(session: sessionStore.session, product: product)
         return (info, via)
@@ -312,10 +312,11 @@ struct BurstView: View {
             forceLoad: !h5Runtime.isLive
         )
         if !h5Runtime.ready {
-            if let err = await h5Runtime.waitUntilLive(seconds: 6) {
+            if let err = await h5Runtime.waitUntilLive(seconds: 8) {
                 log = "H5 未就绪：\(err)，改走 URLSession 拉 actId"
             }
         }
+        _ = await h5Runtime.waitForCWB(seconds: 8)
         log = "2/4 拉取当日 \(product.volume) actId… \(cwbStore.lengthText)"
         var (info, via) = await pullActId(product: product)
         if !info.ok {

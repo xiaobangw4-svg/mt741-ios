@@ -113,7 +113,7 @@ final class H5Runtime: NSObject, ObservableObject {
     func fire(request: BurstRequest, session: Session) async -> BurstStats {
         keepInWindow()
         let already = await fireFunctionReady()
-        if !already, let err = await waitUntilReady(seconds: 6, product: request.product, session: session) {
+        if !already, let err = await waitUntilReady(seconds: 8, product: request.product, session: session) {
             return BurstStats(
                 url: request.target.urlString,
                 n: BurstClient.clampN(request.n),
@@ -128,6 +128,7 @@ final class H5Runtime: NSObject, ObservableObject {
                 shots: [BurstShot(idx: 0, ok: false, status: 0, ms: 0, body: "", error: err)]
             )
         }
+        _ = await waitForCWB(seconds: 8)
         let product = request.product
         let plain = RushPlain(
             amount: request.amount.isEmpty ? product.defaultAmount : request.amount,
@@ -175,8 +176,24 @@ final class H5Runtime: NSObject, ObservableObject {
     }
 
     func fetchActId(product: Product = .sku741, session: Session? = nil) async -> PurchaseInfo {
+        _ = await waitUntilLive(seconds: 8)
+        if let captured = await capturedPurchaseJSON() {
+            let info = CatalogClient.parse(captured, sku: product.sku)
+            if info.ok {
+                lastProbe = info.message
+                return info
+            }
+        }
+        _ = await waitForCWB(seconds: 8)
         if let err = pageError() {
             return PurchaseInfo(ok: false, message: err)
+        }
+        if let captured = await capturedPurchaseJSON() {
+            let info = CatalogClient.parse(captured, sku: product.sku)
+            if info.ok {
+                lastProbe = info.message
+                return info
+            }
         }
         let bodyObj: [String: Any] = ["hot": true, "spuId": product.spu]
         let body = String(data: (try? JSONSerialization.data(withJSONObject: bodyObj)) ?? Data(), encoding: .utf8) ?? ""
@@ -295,6 +312,25 @@ final class H5Runtime: NSObject, ObservableObject {
         return nil
     }
 
+    func waitForCWB(seconds: Double) async -> Bool {
+        if (cwbStore?.cwb.count ?? 0) > 0 { return true }
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if (cwbStore?.cwb.count ?? 0) > 0 { return true }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        return (cwbStore?.cwb.count ?? 0) > 0
+    }
+
+    func capturedPurchaseJSON() async -> [String: Any]? {
+        let raw = try? await webView.evaluateJavaScript("window.__mt741purchaseInfo || ''")
+        guard let text = raw as? String, !text.isEmpty,
+              let data = text.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return nil }
+        return json
+    }
+
     private func requestJSON(method: String, url: String, body: String?, session: Session?, timeoutMs: Int, product: Product = .sku741) async throws -> [String: Any] {
         var payload: [String: Any] = ["method": method, "url": url, "timeoutMs": timeoutMs]
         if let body, !body.isEmpty {
@@ -314,8 +350,18 @@ final class H5Runtime: NSObject, ObservableObject {
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
-            let hint = err.isEmpty ? (text.isEmpty ? "H5 请求无返回（页内 JS 未跑起来）" : String(text.prefix(120))) : err
-            throw NSError(domain: "H5", code: JSONText.int(row["status"]) ?? 0, userInfo: [
+            let status = JSONText.int(row["status"]) ?? 0
+            var hint = err
+            if hint.isEmpty {
+                if text.contains("429") {
+                    hint = "H5 HTTP \(status) ESA 拦了（CWB 还没签上）"
+                } else if text.isEmpty {
+                    hint = "H5 请求无返回（页内 JS 未跑起来）"
+                } else {
+                    hint = String(text.prefix(120))
+                }
+            }
+            throw NSError(domain: "H5", code: status, userInfo: [
                 NSLocalizedDescriptionKey: hint,
             ])
         }

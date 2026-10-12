@@ -36,6 +36,17 @@ enum CWBHook {
         var open = proto.open;
         proto.open = function (m, u) {
           this.__mt741url = u;
+          if (!this.__mt741cap) {
+            this.__mt741cap = true;
+            this.addEventListener('load', function () {
+              try {
+                var u2 = String(this.__mt741url || '');
+                if (u2.indexOf('purchaseInfoV2') >= 0) {
+                  window.__mt741purchaseInfo = String(this.responseText || '');
+                }
+              } catch (e) {}
+            });
+          }
           return open.apply(this, arguments);
         };
         var setH = proto.setRequestHeader;
@@ -61,7 +72,15 @@ enum CWBHook {
           var h = (init && init.headers) || (input && input.headers);
           var p = fromHeaders(h);
           if (p.cwb) report(p.cwb, p.hh, url);
-          return origFetch.apply(this, arguments);
+          return origFetch.apply(this, arguments).then(function (res) {
+            try {
+              var u2 = String((res && res.url) || url || '');
+              if (u2.indexOf('purchaseInfoV2') >= 0 && res && res.clone) {
+                res.clone().text().then(function (t) { window.__mt741purchaseInfo = String(t || ''); }).catch(function () {});
+              }
+            } catch (e) {}
+            return res;
+          });
         };
       }
       function hookHeaders() {
