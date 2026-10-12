@@ -16,6 +16,25 @@ final class ProductTests: XCTestCase {
         XCTAssertEqual(p.h5URL.host, "h5.moutai519.com.cn")
         XCTAssertTrue(p.h5URL.absoluteString.contains("smsp-detail"))
         XCTAssertEqual(p.rushURL.lastPathComponent, "one")
+        XCTAssertEqual(p.captchaId, YidunClient.captchaId741)
+    }
+
+    func testSKU483Identity() {
+        let p = Product.sku483
+        XCTAssertEqual(p.sku, "483")
+        XCTAssertEqual(p.spu, "IMTP1000229")
+        XCTAssertEqual(p.volume, "1L")
+        XCTAssertEqual(p.limitCount, 6)
+        XCTAssertEqual(p.catalogOutPrice, 3799)
+        XCTAssertEqual(p.defaultAmount, "1")
+        XCTAssertTrue(p.name.contains("1L"))
+        XCTAssertTrue(p.name.contains("飞天"))
+        XCTAssertEqual(p.searchKeyword, "飞天茅台3799")
+        XCTAssertTrue(p.h5URL.absoluteString.contains("1000ml-detail"))
+        XCTAssertTrue(p.h5URL.absoluteString.contains("IMTP1000229"))
+        XCTAssertEqual(p.rushURL.lastPathComponent, "rushPurchase")
+        XCTAssertEqual(p.captchaId, YidunClient.captchaId483)
+        XCTAssertNotEqual(p.captchaId, YidunClient.captchaId741)
     }
 
     func testSKU10193Identity() {
@@ -35,8 +54,9 @@ final class ProductTests: XCTestCase {
     }
 
     func testNamedAndCatalog() {
-        XCTAssertEqual(Product.all.count, 2)
+        XCTAssertEqual(Product.all.count, 3)
         XCTAssertEqual(Product.named("10193").sku, "10193")
+        XCTAssertEqual(Product.named("483").sku, "483")
         XCTAssertEqual(Product.named("nope").sku, "741")
         let store = ProductStore(selected: .sku10193)
         XCTAssertEqual(store.selected.sku, "10193")

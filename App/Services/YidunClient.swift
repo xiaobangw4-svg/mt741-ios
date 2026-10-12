@@ -2,6 +2,7 @@ import Foundation
 
 enum YidunClient {
     static let captchaId741 = "1e1ea52963a94c21b0babc42b2b5b910"
+    static let captchaId483 = "3fde6da0bf4d41c39ef99de8ba977d50"
     static let verifyURL = URL(string: "https://h5.moutai519.com.cn/xhr/front/trade/priority/verify/code")!
 
     static func verify(validate: String, priorityRecordId: String, session: Session, captchaId: String = captchaId741, gdxid: String = "") async -> String {

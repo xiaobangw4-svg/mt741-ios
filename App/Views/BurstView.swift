@@ -173,7 +173,8 @@ struct BurstView: View {
             }
             .fullScreenCover(isPresented: $showYidun) {
                 YidunSheet(
-                    priorityRecordId: lastHit.priorityRecordId
+                    priorityRecordId: lastHit.priorityRecordId,
+                    captchaId: productStore.selected.captchaId
                 ) { value, fp in
                     ydToken = value
                     Task { await finishManualYidun(validate: value, fp: fp) }
@@ -445,7 +446,7 @@ struct BurstView: View {
         let gdx = await h5Runtime.cookieValue("gdxidpyhxdE")
         let solved = await YidunSolver.solve(
             endpoint: solverURL,
-            captchaId: YidunClient.captchaId741,
+            captchaId: product.captchaId,
             pageUrl: product.h5URL.absoluteString,
             priorityRecordId: hit.priorityRecordId,
             deviceId: sessionStore.session.deviceId,
@@ -475,6 +476,7 @@ struct BurstView: View {
                 validate: token,
                 priorityRecordId: recordId,
                 session: sessionStore.session,
+                captchaId: product.captchaId,
                 gdxid: fp
             )
         }

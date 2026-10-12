@@ -22,6 +22,8 @@ final class H5FireTests: XCTestCase {
         XCTAssertTrue(headers["Referer"]?.contains("smsp-detail") == true)
         let h100 = H5Fire.pageHeaders(deviceId: "DEV-1", product: .sku10193)
         XCTAssertTrue(h100["Referer"]?.contains("xft-detail") == true)
+        let h1l = H5Fire.pageHeaders(deviceId: "DEV-1", product: .sku483)
+        XCTAssertTrue(h1l["Referer"]?.contains("1000ml-detail") == true)
         let kv = H5Fire.kvPairs(count: 3, deviceId: "DEV-1")
         XCTAssertEqual(kv.count, 3)
         XCTAssertFalse(kv[0]["k", default: ""].isEmpty)

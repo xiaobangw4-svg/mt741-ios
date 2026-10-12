@@ -56,6 +56,18 @@ final class OrderClientTests: XCTestCase {
         XCTAssertTrue(pt.contains("\"spuId\":\"10193\""))
     }
 
+    func testComposeActParamUsesSKU483() {
+        let obj = OrderClient.composeActParam(
+            amount: "1",
+            shipAddressId: 1,
+            priorityRecordId: 99,
+            product: .sku483
+        )
+        let items = JSONText.array(obj["itemList"])
+        XCTAssertEqual(JSONText.string(items[0]["spuId"]), "483")
+        XCTAssertEqual(JSONText.int(items[0]["count"]), 1)
+    }
+
     func testOrderMIMEWrapAndRoundTrip() {
         XCTAssertEqual(RushCrypto.mimeWrap("YWJj"), "YWJj\n")
         let long = String(repeating: "A", count: 80)

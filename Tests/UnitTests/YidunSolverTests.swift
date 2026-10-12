@@ -94,6 +94,8 @@ final class YidunSolverTests: XCTestCase {
     func testOfficialPopupHtml() {
         let html = YidunWidget.html()
         XCTAssertTrue(html.contains(YidunClient.captchaId741))
+        let html1l = YidunWidget.html(captchaId: YidunClient.captchaId483)
+        XCTAssertTrue(html1l.contains(YidunClient.captchaId483))
         XCTAssertTrue(html.contains("mode: \"popup\""))
         XCTAssertTrue(html.contains("popUp()"))
         XCTAssertTrue(html.contains("安全验证"))

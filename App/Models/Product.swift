@@ -11,6 +11,7 @@ struct Product: Equatable, Identifiable {
     let catalogOutPrice: Double
     let searchKeyword: String
     let defaultAmount: String
+    let captchaId: String
     let h5URL: URL
     let rushURL: URL
 
@@ -23,8 +24,23 @@ struct Product: Equatable, Identifiable {
         catalogOutPrice: 1639,
         searchKeyword: "飞天茅台1499",
         defaultAmount: "1",
+        captchaId: YidunClient.captchaId741,
         h5URL: URL(string: "https://h5.moutai519.com.cn/mt/item/smsp-detail?appConfig=2_1_2")!,
         rushURL: URL(string: "https://h5.moutai519.com.cn/xhr/front/trade/priority/rushPurchase/hot/branch/one")!
+    )
+
+    static let sku483 = Product(
+        sku: "483",
+        spu: "IMTP1000229",
+        name: "飞天53%vol 1L贵州茅台酒",
+        volume: "1L",
+        limitCount: 6,
+        catalogOutPrice: 3799,
+        searchKeyword: "飞天茅台3799",
+        defaultAmount: "1",
+        captchaId: YidunClient.captchaId483,
+        h5URL: URL(string: "https://h5.moutai519.com.cn/mt/item/1000ml-detail?appConfig=2_1_2&sourceId=IMTP1000229")!,
+        rushURL: URL(string: "https://h5.moutai519.com.cn/xhr/front/trade/priority/rushPurchase")!
     )
 
     static let sku10193 = Product(
@@ -36,11 +52,12 @@ struct Product: Equatable, Identifiable {
         catalogOutPrice: 249,
         searchKeyword: "飞天茅台249",
         defaultAmount: "2",
+        captchaId: YidunClient.captchaId741,
         h5URL: URL(string: "https://h5.moutai519.com.cn/mt/item/xft-detail?appConfig=2_1_2&sourceId=IMTP1000006")!,
         rushURL: URL(string: "https://h5.moutai519.com.cn/xhr/front/trade/priority/rushPurchase/hot/branch/five")!
     )
 
-    static let all: [Product] = [sku741, sku10193]
+    static let all: [Product] = [sku741, sku483, sku10193]
 
     static func named(_ sku: String) -> Product {
         all.first { $0.sku == sku } ?? sku741

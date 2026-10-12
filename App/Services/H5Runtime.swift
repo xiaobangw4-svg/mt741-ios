@@ -230,7 +230,7 @@ final class H5Runtime: NSObject, ObservableObject {
         if trimmed.isEmpty { return "validate 为空，先完成点选" }
         if rid.isEmpty { return "没有 priorityRecordId，点选结果会写入 ydToken，下次异步带上重发" }
         let bodyObj: [String: Any] = [
-            "captchaId": YidunClient.captchaId741,
+            "captchaId": product.captchaId,
             "validate": trimmed,
             "priorityUserRecordId": rid,
         ]

@@ -21,6 +21,12 @@ final class MT741UITests: XCTestCase {
         let title100 = app.staticTexts["product.title.10193"]
         XCTAssertTrue(title100.waitForExistence(timeout: 5))
         XCTAssertTrue(title100.label.contains("100ml"))
+        let sku1l = app.staticTexts["product.sku.483"]
+        XCTAssertTrue(sku1l.waitForExistence(timeout: 5), "1L 商品卡 SKU 未出现")
+        XCTAssertTrue(sku1l.label.contains("483"), "SKU 文案应含 483，实际：\(sku1l.label)")
+        let title1l = app.staticTexts["product.title.483"]
+        XCTAssertTrue(title1l.waitForExistence(timeout: 5))
+        XCTAssertTrue(title1l.label.contains("1L"))
     }
 
     func testOnScreenOfficialH5Stage() {

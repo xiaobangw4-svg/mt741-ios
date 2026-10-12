@@ -1,6 +1,6 @@
 # MT741
 
-Windows 上写的 iOS App：SKU **741** 飞天 500ml、SKU **10193** 飞天 100ml + 短信登录 + 官方 H5。
+Windows 上写的 iOS App：SKU **741** 飞天 500ml、SKU **483** 飞天 1L、SKU **10193** 飞天 100ml + 短信登录 + 官方 H5。
 
 编译和真机环境都走 GitHub Actions，本机不需要 Xcode。
 
@@ -81,7 +81,7 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 
 ## App 做什么
 
-- 商品页：点选 741 / `IMTP1000313` / 飞天 500ml（默认 1 瓶，`hot/branch/one`）或 10193 / `IMTP1000006` / 飞天 100ml（默认 2 瓶，`hot/branch/five`）
+- 商品页：点选 741 / `IMTP1000313` / 飞天 500ml（默认 1 瓶，`hot/branch/one`）、483 / `IMTP1000229` / 飞天 1L（默认 1 瓶，`rushPurchase`）或 10193 / `IMTP1000006` / 飞天 100ml（默认 2 瓶，`hot/branch/five`）
 - 登录页：短信验证码，打 `app.moutai519.com.cn` 的 vcode / login；实名、找回身份证、注销账号。会话不保存 `idCode`，身份证不落盘
 - 官网商品页：屏幕上半一直是官方 WK（`smsp-detail` / `xft-detail`），StyleTotal 按真机排版签 CWB；拦截 XHR/fetch 的 `Content-Web-Bb`
 - 出单：真机登录后在异步页点 **自动出单**。App 加载官方商品页，由页内 wasm 现签 CWB、拉当日 actId、开火，2000 后 `compose`/`submit` 出 `orderId`，再 `order/pay` + `requestPay` channel=71 拉起支付宝。抢购走本机流量。4025 把远程上号 ngrok 根地址填进异步页，手机经公网打电脑 `8889/api/verify` 自动过点图；连不上立刻弹官网点选。
@@ -90,7 +90,7 @@ Bundle ID 现在是 `com.local.mt741`。要上 TestFlight，先在 Apple Develop
 
 ## 测试
 
-- 逻辑：SKU 741 / 10193、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、实名/找回身份证/注销解析、CWB 拦截脚本、H5 页内开火脚本、purchaseInfoV2 解析、compose 明文、远程上号 URL 转 8889 易盾 JSON
-- UI：启动看到官网商品页状态条和 741 / 10193 商品卡；没有单独的 H5 Tab；切到登录页看到输入框、实名和注销按钮（`waitForExistence`，不用 sleep）
+- 逻辑：SKU 741 / 483 / 10193、vcode MD5 夹具、MT-V 夹具、会话不含 idCode、实名/找回身份证/注销解析、CWB 拦截脚本、H5 页内开火脚本、purchaseInfoV2 解析、compose 明文、远程上号 URL 转 8889 易盾 JSON
+- UI：启动看到官网商品页状态条和 741 / 483 / 10193 商品卡；没有单独的 H5 Tab；切到登录页看到输入框、实名和注销按钮（`waitForExistence`，不用 sleep）
 
 改完代码只 push，以 CI 报告为准。

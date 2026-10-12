@@ -19,7 +19,7 @@ struct ProductView: View {
                     infoRow("默认数量", selected.defaultAmount, id: aid(selected, "product.amount"))
                     infoRow("抢购口", selected.rushURL.lastPathComponent, id: aid(selected, "product.rush"))
 
-                    Text("点选商品后，屏幕上的官网页、异步和组单都跟所选 SKU 走。500ml 默认 1 瓶，100ml 默认 2 瓶。")
+                    Text("点选商品后，屏幕上的官网页、异步和组单都跟所选 SKU 走。500ml / 1L 默认 1 瓶，100ml 默认 2 瓶。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("product.note")
