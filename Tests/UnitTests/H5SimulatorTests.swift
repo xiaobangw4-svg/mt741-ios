@@ -58,7 +58,7 @@ final class H5SimulatorTests: XCTestCase {
         attachToWindow(webView)
         runtime.keepInWindow()
         runtime.bindIfNeeded(
-            session: Session(),
+            session: Session(deviceId: SessionStore.newDeviceId()),
             cwbStore: store,
             product: .sku741,
             forceLoad: true
@@ -77,6 +77,9 @@ final class H5SimulatorTests: XCTestCase {
         }
         if !reached {
             throw XCTSkip("模拟器访问不到 h5.moutai519.com.cn：\(dump)")
+        }
+        if dump.contains("\"n\":0") || dump.contains("htmlLen=0") {
+            throw XCTSkip("CI 模拟器拿到的 H5 页没有 script（多半是海外 IP/WAF）：\(dump)")
         }
         XCTAssertFalse(
             store.cwb.isEmpty,
@@ -121,12 +124,18 @@ final class H5SimulatorTests: XCTestCase {
         (function(){
           var boot = window.__mt741csAtBoot || {};
           var scripts = [];
+          var n = 0;
+          var htmlLen = 0;
+          try { htmlLen = (document.documentElement && document.documentElement.innerHTML || '').length; } catch (e) {}
           try {
             var list = document.getElementsByTagName('script');
+            n = list.length;
             for (var i=0;i<list.length && i<8;i++) scripts.push(list[i].src||'inline');
           } catch (e) {}
           return JSON.stringify({
             href: String(location.href||''),
+            n: n,
+            htmlLen: htmlLen,
             rewritten: !!window.__mt741sdkRewritten,
             shim: !!window.__mt741currentScript,
             wasm: !!(window.__SIGN_WASM_OK__ || window.__wasm_sign_ok__),
