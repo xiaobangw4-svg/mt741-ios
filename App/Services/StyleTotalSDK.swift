@@ -34,12 +34,41 @@ enum StyleTotalSDK {
         let url = remoteURL.absoluteString
         return """
         (function(){
-          try {
-            var s=document.createElement('script');
-            s.src='\(url)';
-            s.async=false;
-            (document.documentElement||document).appendChild(s);
-          } catch(e) {}
+          var src='\(url)';
+          var dummy=document.createElement('script');
+          dummy.src=src;
+          dummy.async=false;
+          dummy.setAttribute('data-mt741-sdk','1');
+          try { (document.documentElement||document).appendChild(dummy); } catch(e) {}
+          function shim(obj){
+            try {
+              Object.defineProperty(obj,'currentScript',{
+                configurable:true,
+                enumerable:true,
+                get:function(){ return dummy; }
+              });
+              return true;
+            } catch(e) { return false; }
+          }
+          window.__mt741currentScript=shim(document);
+          if(!window.__mt741currentScript){
+            try {
+              var proto=Document.prototype;
+              var desc=Object.getOwnPropertyDescriptor(proto,'currentScript')
+                || Object.getOwnPropertyDescriptor(HTMLDocument.prototype,'currentScript');
+              if(desc && desc.configurable){
+                Object.defineProperty(proto,'currentScript',{
+                  configurable:true,
+                  enumerable:!!desc.enumerable,
+                  get:function(){
+                    try { var n=desc.get?desc.get.call(this):null; if(n) return n; } catch(e) {}
+                    return dummy;
+                  }
+                });
+                window.__mt741currentScript=true;
+              }
+            } catch(e) {}
+          }
           window.__mt741styleFrom=\(hits);
           window.__mt741stylePatched=true;
           window.__mt741sdkRewritten=true;
@@ -53,7 +82,7 @@ enum StyleTotalSDK {
     static func fetchPatched() async -> String? {
         if let cachedPatched { return cachedPatched }
         var req = URLRequest(url: remoteURL)
-        req.timeoutInterval = 6
+        req.timeoutInterval = 15
         req.cachePolicy = .returnCacheDataElseLoad
         req.setValue(CookieBridge.h5UA, forHTTPHeaderField: "User-Agent")
         do {

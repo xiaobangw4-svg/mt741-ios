@@ -56,6 +56,15 @@ enum StyleTotalPatch {
         } else {
             rewritten = JSONText.int(obj["rewritten"]) == 1
         }
+        let wasm: Bool
+        if let b = obj["wasm"] as? Bool {
+            wasm = b
+        } else {
+            wasm = JSONText.int(obj["wasm"]) == 1
+        }
+        if obj["wasm"] != nil, rewritten, !wasm {
+            return "wasm未起"
+        }
         return statusLabel(
             wrapped: JSONText.int(obj["wrapped"]) ?? 0,
             from: JSONText.int(obj["from"]) ?? 0,

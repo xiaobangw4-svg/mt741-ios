@@ -88,6 +88,10 @@ final class StyleTotalPatchTests: XCTestCase {
             "Style抬位"
         )
         XCTAssertEqual(StyleTotalPatch.statusLabel(fromJSON: "nope"), "Style未挂")
+        XCTAssertEqual(
+            StyleTotalPatch.statusLabel(fromJSON: #"{"patched":true,"rewritten":true,"wasm":false}"#),
+            "wasm未起"
+        )
     }
 
     func testNativeSDKPatchRewritesOfficialLoop() {
@@ -118,5 +122,8 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(boot.contains("_h<10000"))
         XCTAssertTrue(boot.contains(StyleTotalSDK.remoteURL.absoluteString))
         XCTAssertTrue(boot.contains("document.createElement('script')"))
+        XCTAssertTrue(boot.contains("currentScript"))
+        XCTAssertTrue(boot.contains("data-mt741-sdk"))
+        XCTAssertTrue(boot.contains("__mt741currentScript"))
     }
 }

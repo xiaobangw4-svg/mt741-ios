@@ -322,6 +322,38 @@ final class H5Runtime: NSObject, ObservableObject {
         return (cwbStore?.cwb.count ?? 0) > 0
     }
 
+    func refreshStyleStatus() async {
+        keepInWindow()
+        for _ in 0..<12 {
+            let raw = await styleProbeJSON()
+            styleStatus = StyleTotalPatch.statusLabel(fromJSON: raw)
+            if (cwbStore?.cwb.count ?? 0) > 0 { return }
+            if raw.contains("\"wasm\":true") { return }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+        }
+    }
+
+    private func styleProbeJSON() async -> String {
+        let script = """
+        (function(){
+          var st = {};
+          try { st = window.__mt741hookStyle ? window.__mt741hookStyle() : {}; } catch (e) { st.err = String(e); }
+          try { window.__mt741hookCWB && window.__mt741hookCWB(); } catch (e) {}
+          st.wrapped = window.__mt741styleWrapped || 0;
+          st.from = window.__mt741styleFrom || 0;
+          st.bump = window.__mt741styleBump || 0;
+          st.patched = !!window.__mt741stylePatched;
+          st.gcs = !!window.__mt741gcs;
+          st.rewritten = !!window.__mt741sdkRewritten;
+          st.cs = !!window.__mt741currentScript;
+          st.wasm = !!(window.__SIGN_WASM_OK__ || window.__wasm_sign_ok__ || window.__SIGN_WASM_VERSION__);
+          return JSON.stringify(st);
+        })()
+        """
+        let raw = try? await webView.evaluateJavaScript(script)
+        return (raw as? String) ?? ""
+    }
+
     func capturedPurchaseJSON() async -> [String: Any]? {
         let raw = try? await webView.evaluateJavaScript("window.__mt741purchaseInfo || ''")
         guard let text = raw as? String, !text.isEmpty,
@@ -566,27 +598,7 @@ extension H5Runtime {
                 self.owner?.pageURL = webView.url?.absoluteString ?? ""
                 self.owner?.ready = self.owner?.isLive ?? false
                 self.owner?.keepInWindow()
-                webView.evaluateJavaScript(
-                    """
-                    (function(){
-                      var st = {};
-                      try { st = window.__mt741hookStyle ? window.__mt741hookStyle() : {}; } catch (e) { st.err = String(e); }
-                      try { window.__mt741hookCWB && window.__mt741hookCWB(); } catch (e) {}
-                      st.wrapped = window.__mt741styleWrapped || 0;
-                      st.from = window.__mt741styleFrom || 0;
-                      st.bump = window.__mt741styleBump || 0;
-                      st.patched = !!window.__mt741stylePatched;
-                      st.gcs = !!window.__mt741gcs;
-                      st.rewritten = !!window.__mt741sdkRewritten;
-                      return JSON.stringify(st);
-                    })()
-                    """
-                ) { result, _ in
-                    let raw = (result as? String) ?? ""
-                    DispatchQueue.main.async {
-                        self.owner?.styleStatus = StyleTotalPatch.statusLabel(fromJSON: raw)
-                    }
-                }
+                Task { await self.owner?.refreshStyleStatus() }
             }
         }
 
