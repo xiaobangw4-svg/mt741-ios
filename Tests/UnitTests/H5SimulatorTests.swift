@@ -48,6 +48,45 @@ final class H5SimulatorTests: XCTestCase {
         XCTAssertTrue(text.contains("\"shim\":true") || text.contains("\"dummy\":true"), "dummy/shim 应生效：\(text)")
     }
 
+    func testStyleTotalProbeMinWidthIsRaisedInWK() async throws {
+        let content = WKUserContentController()
+        content.addUserScript(WKUserScript(
+            source: StyleTotalPatch.javaScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true,
+            in: .page
+        ))
+        let config = WKWebViewConfiguration()
+        config.userContentController = content
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        let webView = makeVisibleWebView(config: config)
+        let page = """
+        <html><head></head><body>
+        <script>
+        (function(){
+          var u = document.createElement('div');
+          u.style.cssText = 'display:flex;width:10px;height:10px;padding:1px;margin:1px;max-width:20px;min-width:5px;';
+          document.body.appendChild(u);
+          var st = getComputedStyle(u);
+          window.__probeMin = u.style.minWidth;
+          window.__probeW = parseInt(st.width, 10);
+          window.__probeFrom = window.__mt741styleFrom || 0;
+        })();
+        </script>
+        </body></html>
+        """
+        webView.loadHTMLString(page, baseURL: URL(string: "https://h5.moutai519.com.cn/"))
+        try await waitUntil(webView, seconds: 8) { wv in
+            (try? await wv.evaluateJavaScript("window.__probeMin")) as? String
+        }
+        let raw = try await webView.evaluateJavaScript(
+            "JSON.stringify({min:window.__probeMin,w:window.__probeW,from:window.__probeFrom})"
+        )
+        let text = (raw as? String) ?? String(describing: raw)
+        print("H5SIM probe dump \(text)")
+        XCTAssertTrue(text.contains("220px"), "StyleTotal 探针 min-width 应抬到 220px，实际：\(text)")
+    }
+
     func testJSONStringifyLiftsCwbArrayInWK() async throws {
         let content = WKUserContentController()
         content.addUserScript(WKUserScript(

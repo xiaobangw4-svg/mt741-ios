@@ -118,6 +118,19 @@ enum StyleTotalPatch {
           return true;
         } catch (e) { return false; }
       }
+      function liftJsonText(s) {
+        if (typeof s !== 'string' || s.charAt(0) !== '[') return s;
+        if (!/[0-9a-f]{32}/i.test(s)) return s;
+        return s.replace(/,(\d{1,4})\]$/, function (m, n) {
+          var num = parseInt(n, 10);
+          if (num !== num || num >= 10000) return m;
+          var rid = (s.match(/[0-9a-f]{32}/i) || [''])[0];
+          var lifted = lift(num, rid);
+          window.__mt741styleFrom = (window.__mt741styleFrom || 0) + 1;
+          window.__mt741style142 = lifted;
+          return ',' + lifted + ']';
+        });
+      }
       function liftField142(obj) {
         try {
           var v = obj[142];
@@ -160,18 +173,35 @@ enum StyleTotalPatch {
         return out;
       }
       function hookJSON() {
-        if (JSON.stringify && JSON.stringify.__mt741) return;
+        try {
+          if (JSON.stringify && JSON.stringify.__mt741) return;
+        } catch (e0) {}
         var orig = JSON.stringify;
+        if (orig && orig.__mt741orig) orig = orig.__mt741orig;
         if (typeof orig !== 'function') return;
         var wrapped = function (value, replacer, space) {
           try {
             if (Array.isArray(value)) value = liftCwbArray(value);
+            else if (isCwbFields(value)) liftField142(value);
           } catch (e) {}
-          return orig.call(JSON, value, replacer, space);
+          var out = orig.call(JSON, value, replacer, space);
+          try { out = liftJsonText(out); } catch (e2) {}
+          return out;
         };
         wrapped.__mt741 = true;
+        wrapped.__mt741orig = orig;
         disguise(wrapped, orig);
-        try { JSON.stringify = wrapped; window.__mt741json = true; } catch (e) {}
+        try {
+          Object.defineProperty(JSON, 'stringify', {
+            configurable: true,
+            enumerable: false,
+            get: function () { return wrapped; },
+            set: function () {}
+          });
+          window.__mt741json = true;
+        } catch (e) {
+          try { JSON.stringify = wrapped; window.__mt741json = true; } catch (e2) {}
+        }
       }
       function patchSrc(src) {
         if (typeof src !== 'string' || !src) return src;
@@ -291,11 +321,37 @@ enum StyleTotalPatch {
           if (el.id) return false;
           var cn = el.className;
           if (cn && String(cn).length) return false;
-          var w = el.style && el.style.width;
-          if (!w) return false;
-          var n = parseInt(w, 10);
+          var st = el.style;
+          if (!st || st.display !== 'flex') return false;
+          if (!st.minWidth || !st.maxWidth) return false;
+          var n = parseInt(st.width, 10);
           return n === n && n >= 0 && n <= 255;
         } catch (e) { return false; }
+      }
+      function armProbe(el) {
+        if (!el || el.__mt741probe) return;
+        if (!isProbe(el)) return;
+        el.__mt741probe = true;
+        try {
+          var cur = parseInt(el.style.minWidth, 10);
+          if (!(cur === cur) || cur < 220) el.style.minWidth = '220px';
+          void el.offsetWidth;
+          window.__mt741styleFrom = (window.__mt741styleFrom || 0) + 1;
+        } catch (e) {}
+      }
+      function hookProbeAppend() {
+        if (Node.prototype.appendChild && Node.prototype.appendChild.__mt741) return;
+        var orig = Node.prototype.appendChild;
+        if (typeof orig !== 'function') return;
+        var wrapped = function (node) {
+          try { armProbe(node); } catch (e) {}
+          var ret = orig.call(this, node);
+          try { armProbe(node); void (node && node.offsetWidth); } catch (e2) {}
+          return ret;
+        };
+        wrapped.__mt741 = true;
+        disguise(wrapped, orig);
+        try { Node.prototype.appendChild = wrapped; window.__mt741append = true; } catch (e) {}
       }
       function bumpPx(v) {
         var n = parseInt(v, 10);
@@ -483,6 +539,7 @@ enum StyleTotalPatch {
         }, true);
       }
       function hook() {
+        try { hookProbeAppend(); } catch (e) {}
         try { hookJSON(); } catch (e) {}
         try { hookKeys(); } catch (e) {}
         try { hookGCS(); } catch (e) {}
@@ -497,6 +554,7 @@ enum StyleTotalPatch {
         try {
           if (!window.__mt741styleRearm) {
             window.__mt741styleRearm = setInterval(function () {
+              try { hookProbeAppend(); } catch (e) {}
               try { hookJSON(); } catch (e) {}
               try { hookKeys(); } catch (e) {}
               try { hookDefineProperty(); } catch (e) {}
