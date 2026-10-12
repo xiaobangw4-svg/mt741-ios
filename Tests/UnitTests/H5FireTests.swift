@@ -15,6 +15,9 @@ final class H5FireTests: XCTestCase {
         XCTAssertTrue(H5Fire.javaScript.contains("payload.deviceId"))
         XCTAssertTrue(H5Fire.javaScript.contains("wapToken"))
         XCTAssertTrue(H5Fire.javaScript.contains("lockDevice"))
+        XCTAssertTrue(H5Fire.javaScript.contains("_u_id_"))
+        XCTAssertTrue(H5Fire.javaScript.contains("didSet"))
+        XCTAssertTrue(H5Fire.javaScript.contains("payload.userId"))
     }
 
     func testPageHeadersSkipCWBAndIncludeDevice() {

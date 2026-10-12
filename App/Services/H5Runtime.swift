@@ -144,6 +144,7 @@ final class H5Runtime: NSObject, ObservableObject {
             "intervalMs": BurstClient.clampInterval(request.intervalMs),
             "deviceId": deviceId,
             "wapToken": session.wapToken,
+            "userId": session.userId,
             "headers": H5Fire.pageHeaders(deviceId: deviceId, product: product),
             "kv": H5Fire.kvPairs(count: n, deviceId: deviceId),
         ]
@@ -369,6 +370,7 @@ final class H5Runtime: NSObject, ObservableObject {
             payload["headers"] = H5Fire.pageHeaders(deviceId: session.authDeviceId, product: product)
             payload["deviceId"] = session.authDeviceId
             payload["wapToken"] = session.wapToken
+            payload["userId"] = session.userId
         }
         let result = try await callJS(
             "return await window.__mt741request(payload);",

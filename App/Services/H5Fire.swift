@@ -5,26 +5,34 @@ enum H5Fire {
     (function () {
       if (window.__mt741fireReady) return;
       window.__mt741fireReady = true;
-      function pinWap(deviceId, token) {
+      function pinIdentity(deviceId, token, userId) {
         if (deviceId) {
           try { document.cookie = 'MT-Device-ID-Wap=' + String(deviceId) + '; path=/'; } catch (e) {}
         }
         if (token) {
           try { document.cookie = 'MT-Token-Wap=' + String(token) + '; path=/'; } catch (e) {}
         }
+        if (userId) {
+          try { localStorage.setItem('_u_id_', String(userId)); } catch (e) {}
+        }
       }
       function lockDevice(xhr, deviceId) {
         if (!deviceId) return;
         var origSet = xhr.setRequestHeader.bind(xhr);
+        var didSet = false;
         xhr.setRequestHeader = function (k, v) {
           if (String(k).toLowerCase() === 'mt-device-id') {
+            if (didSet) return;
+            didSet = true;
             return origSet('MT-Device-ID', String(deviceId));
           }
           return origSet(k, v);
         };
         var origSend = xhr.send.bind(xhr);
         xhr.send = function (b) {
-          try { origSet('MT-Device-ID', String(deviceId)); } catch (e) {}
+          if (!didSet) {
+            try { xhr.setRequestHeader('MT-Device-ID', String(deviceId)); } catch (e) {}
+          }
           return origSend(b);
         };
       }
@@ -47,11 +55,11 @@ enum H5Fire {
           try { xhr.setRequestHeader('MT-Device-ID', String(deviceId)); } catch (e) {}
         }
       }
-      function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv, deviceId, token) {
+      function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv, deviceId, token, userId) {
         return new Promise(function (resolve) {
           var t0 = Date.now();
           try {
-            pinWap(deviceId, token);
+            pinIdentity(deviceId, token, userId);
             var xhr = new XMLHttpRequest();
             xhr.open(method, url, true);
             xhr.withCredentials = true;
@@ -89,7 +97,8 @@ enum H5Fire {
         var headers = payload.headers || {};
         var deviceId = payload.deviceId || headers['MT-Device-ID'] || headers['mt-device-id'] || '';
         var token = payload.wapToken || '';
-        return xhrOnce(payload.method || 'GET', payload.url, payload.body || null, payload.timeoutMs || 12000, headers, payload.kv, deviceId, token);
+        var userId = payload.userId || '';
+        return xhrOnce(payload.method || 'GET', payload.url, payload.body || null, payload.timeoutMs || 12000, headers, payload.kv, deviceId, token, userId);
       };
       window.__mt741fire = function (payload) {
         payload = payload || {};
@@ -102,7 +111,8 @@ enum H5Fire {
         var kvList = payload.kv || [];
         var deviceId = payload.deviceId || headers['MT-Device-ID'] || headers['mt-device-id'] || '';
         var token = payload.wapToken || '';
-        pinWap(deviceId, token);
+        var userId = payload.userId || '';
+        pinIdentity(deviceId, token, userId);
         var shots = new Array(n);
         return new Promise(function (resolve) {
           var started = 0;
@@ -114,7 +124,7 @@ enum H5Fire {
                 started += 1;
                 inflight += 1;
                 setTimeout(function () {
-                  xhrOnce('POST', url, body, 8000, headers, kvList[i] || {}, deviceId, token).then(function (one) {
+                  xhrOnce('POST', url, body, 8000, headers, kvList[i] || {}, deviceId, token, userId).then(function (one) {
                     shots[i] = {
                       idx: i,
                       ok: one.ok,
