@@ -29,8 +29,8 @@ enum StyleTotalPatch {
     }
 
     static func statusLabel(wrapped: Int, from: Int, patched: Bool, bump: Int = 0, gcs: Bool = false, rewritten: Bool = false) -> String {
-        if rewritten || wrapped > 0 || from > 0 || bump > 0 { return "Style抬位" }
-        if patched || gcs { return "Style脚本在" }
+        if rewritten || wrapped > 0 || from > 0 { return "Style抬位" }
+        if patched || gcs || bump > 0 { return "Style脚本在" }
         return "Style未挂"
     }
 
@@ -139,6 +139,39 @@ enum StyleTotalPatch {
         wrapped.__mt741 = true;
         disguise(wrapped, orig);
         try { Object.keys = wrapped; window.__mt741keys = true; } catch (e) {}
+      }
+      function liftCwbArray(arr) {
+        if (!arr || !arr.length || arr.length < 12) return arr;
+        var rid = '';
+        for (var i = 0; i < arr.length; i++) {
+          if (typeof arr[i] === 'string' && /^[0-9a-f]{32}$/i.test(arr[i])) {
+            rid = arr[i];
+            break;
+          }
+        }
+        if (!rid) return arr;
+        var last = arr.length - 1;
+        var num = typeof arr[last] === 'number' ? arr[last] : parseInt(arr[last], 10);
+        if (num !== num || num >= 10000) return arr;
+        var out = arr.slice();
+        out[last] = lift(num, rid);
+        window.__mt741styleFrom = (window.__mt741styleFrom || 0) + 1;
+        window.__mt741style142 = out[last];
+        return out;
+      }
+      function hookJSON() {
+        if (JSON.stringify && JSON.stringify.__mt741) return;
+        var orig = JSON.stringify;
+        if (typeof orig !== 'function') return;
+        var wrapped = function (value, replacer, space) {
+          try {
+            if (Array.isArray(value)) value = liftCwbArray(value);
+          } catch (e) {}
+          return orig.call(JSON, value, replacer, space);
+        };
+        wrapped.__mt741 = true;
+        disguise(wrapped, orig);
+        try { JSON.stringify = wrapped; window.__mt741json = true; } catch (e) {}
       }
       function patchSrc(src) {
         if (typeof src !== 'string' || !src) return src;
@@ -450,6 +483,7 @@ enum StyleTotalPatch {
         }, true);
       }
       function hook() {
+        try { hookJSON(); } catch (e) {}
         try { hookKeys(); } catch (e) {}
         try { hookGCS(); } catch (e) {}
         try { hookStyleTotalAssign(); } catch (e) {}
@@ -463,6 +497,7 @@ enum StyleTotalPatch {
         try {
           if (!window.__mt741styleRearm) {
             window.__mt741styleRearm = setInterval(function () {
+              try { hookJSON(); } catch (e) {}
               try { hookKeys(); } catch (e) {}
               try { hookDefineProperty(); } catch (e) {}
               try { hookGCS(); } catch (e) {}
@@ -479,6 +514,7 @@ enum StyleTotalPatch {
           gcs: !!window.__mt741gcs,
           esMod: window.__mt741esMod || 0,
           keys: !!window.__mt741keys,
+          json: !!window.__mt741json,
           ext142: window.__mt741style142 || 0
         };
       }

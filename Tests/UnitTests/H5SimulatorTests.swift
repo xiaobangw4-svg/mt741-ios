@@ -48,6 +48,41 @@ final class H5SimulatorTests: XCTestCase {
         XCTAssertTrue(text.contains("\"shim\":true") || text.contains("\"dummy\":true"), "dummy/shim 应生效：\(text)")
     }
 
+    func testJSONStringifyLiftsCwbArrayInWK() async throws {
+        let content = WKUserContentController()
+        content.addUserScript(WKUserScript(
+            source: StyleTotalPatch.javaScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true,
+            in: .page
+        ))
+        let config = WKWebViewConfiguration()
+        config.userContentController = content
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        let webView = makeVisibleWebView(config: config)
+        let page = """
+        <html><head></head><body>
+        <script>
+        (function(){
+          var arr = ['10001','did','sid','','0','0','0a140a64006401ff0000000000000000','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,{},'1','v','',6550];
+          window.__jsonOut = JSON.stringify(arr);
+          window.__jsonFrom = window.__mt741styleFrom || 0;
+        })();
+        </script>
+        </body></html>
+        """
+        webView.loadHTMLString(page, baseURL: URL(string: "https://h5.moutai519.com.cn/"))
+        try await waitUntil(webView, seconds: 8) { wv in
+            (try? await wv.evaluateJavaScript("window.__jsonOut")) as? String
+        }
+        let raw = try await webView.evaluateJavaScript(
+            "JSON.stringify({out:window.__jsonOut,from:window.__jsonFrom})"
+        )
+        let text = (raw as? String) ?? String(describing: raw)
+        print("H5SIM json dump \(text)")
+        XCTAssertTrue(text.contains("19130"), "processDataForSign 前 JSON.stringify 应抬 142，实际：\(text)")
+    }
+
     func testObjectKeysLiftsCwbField142InWK() async throws {
         let content = WKUserContentController()
         content.addUserScript(WKUserScript(

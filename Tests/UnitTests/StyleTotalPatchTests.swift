@@ -31,9 +31,12 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(js.contains("installStyleTotalSetter"))
         XCTAssertTrue(js.contains("__mt741esMod"))
         XCTAssertTrue(js.contains("hookKeys()"))
+        XCTAssertTrue(js.contains("hookJSON()"))
         XCTAssertTrue(js.contains("isCwbFields"))
         XCTAssertTrue(js.contains("liftField142"))
+        XCTAssertTrue(js.contains("liftCwbArray"))
         XCTAssertTrue(js.contains("Object.keys"))
+        XCTAssertTrue(js.contains("JSON.stringify"))
         XCTAssertEqual(H5PageStart.scripts.count, 3)
         XCTAssertTrue(H5PageStart.scripts[0].contains("__mt741hookStyle"))
         XCTAssertTrue(H5PageStart.scripts[1].contains("__mt741hookCWB"))
@@ -81,7 +84,7 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 1, from: 0, patched: true), "Style抬位")
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 1, patched: true), "Style抬位")
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true, bump: 0, gcs: true), "Style脚本在")
-        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true, bump: 1, gcs: true), "Style抬位")
+        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true, bump: 1, gcs: true), "Style脚本在")
         XCTAssertEqual(
             StyleTotalPatch.statusLabel(fromJSON: #"{"patched":true,"wrapped":1,"from":0}"#),
             "Style抬位"
