@@ -2,8 +2,8 @@ import Foundation
 
 /// Hidden WKWebView runs the official unpatched `StyleTotal`.
 /// A 4-digit ext_142 makes today's CWB 768 (plaintext 367); 5 digits make 800 (368).
-/// Chrome sign pool rewrites the loop in `bs_h5.min.js`. Here wrap the export at
-/// document-start: keep natural 5-digit hashes, lift the rest with `10000+(e<<8|n)`.
+/// Chrome rewrites the loop in `bs_h5.min.js`. WK cannot do that without killing wasm,
+/// so lift `h[142]` when `objectToArray` calls `Object.keys` — field 142 is SM4-only.
 enum StyleTotalPatch {
     static let minFiveDigit: UInt32 = 10_000
     static let loopFrom = #"for(var c=0,f=0;f<10;f++){u.style.width=(e+f*s)%256+"px";var l=getComputedStyle(u);c=c+7*parseInt(l.width)+parseInt(l.height)^parseInt(l.paddingTop)}return document.body.removeChild(u),c>>>0"#
@@ -108,6 +108,37 @@ enum StyleTotalPatch {
         wrapped.__mt741st = true;
         window.__mt741styleWrapped = (window.__mt741styleWrapped || 0) + 1;
         return disguise(wrapped, fn);
+      }
+      function isCwbFields(obj) {
+        try {
+          if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+          if (!Object.prototype.hasOwnProperty.call(obj, '142')) return false;
+          if (!Object.prototype.hasOwnProperty.call(obj, '109')) return false;
+          if (!Object.prototype.hasOwnProperty.call(obj, '141')) return false;
+          return true;
+        } catch (e) { return false; }
+      }
+      function liftField142(obj) {
+        try {
+          var v = obj[142];
+          var num = typeof v === 'number' ? v : parseInt(v, 10);
+          if (num !== num || num >= 10000) return;
+          obj[142] = lift(num, obj[109] == null ? '' : String(obj[109]));
+          window.__mt741styleFrom = (window.__mt741styleFrom || 0) + 1;
+          window.__mt741style142 = obj[142];
+        } catch (e) {}
+      }
+      function hookKeys() {
+        if (Object.keys && Object.keys.__mt741) return;
+        var orig = Object.keys;
+        if (typeof orig !== 'function') return;
+        var wrapped = function (obj) {
+          try { if (isCwbFields(obj)) liftField142(obj); } catch (e) {}
+          return orig.apply(this, arguments);
+        };
+        wrapped.__mt741 = true;
+        disguise(wrapped, orig);
+        try { Object.keys = wrapped; window.__mt741keys = true; } catch (e) {}
       }
       function patchSrc(src) {
         if (typeof src !== 'string' || !src) return src;
@@ -419,6 +450,7 @@ enum StyleTotalPatch {
         }, true);
       }
       function hook() {
+        try { hookKeys(); } catch (e) {}
         try { hookGCS(); } catch (e) {}
         try { hookStyleTotalAssign(); } catch (e) {}
         try { hookDefineProperty(); } catch (e) {}
@@ -431,6 +463,7 @@ enum StyleTotalPatch {
         try {
           if (!window.__mt741styleRearm) {
             window.__mt741styleRearm = setInterval(function () {
+              try { hookKeys(); } catch (e) {}
               try { hookDefineProperty(); } catch (e) {}
               try { hookGCS(); } catch (e) {}
               try { hookStyleTotalAssign(); } catch (e) {}
@@ -444,7 +477,9 @@ enum StyleTotalPatch {
           hit: window.__mt741styleHit || 0,
           bump: window.__mt741styleBump || 0,
           gcs: !!window.__mt741gcs,
-          esMod: window.__mt741esMod || 0
+          esMod: window.__mt741esMod || 0,
+          keys: !!window.__mt741keys,
+          ext142: window.__mt741style142 || 0
         };
       }
       window.__mt741liftStyle = lift;

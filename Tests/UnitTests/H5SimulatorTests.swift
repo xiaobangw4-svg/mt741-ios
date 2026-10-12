@@ -48,6 +48,46 @@ final class H5SimulatorTests: XCTestCase {
         XCTAssertTrue(text.contains("\"shim\":true") || text.contains("\"dummy\":true"), "dummy/shim 应生效：\(text)")
     }
 
+    func testObjectKeysLiftsCwbField142InWK() async throws {
+        let content = WKUserContentController()
+        content.addUserScript(WKUserScript(
+            source: StyleTotalPatch.javaScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true,
+            in: .page
+        ))
+        let config = WKWebViewConfiguration()
+        config.userContentController = content
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        let webView = makeVisibleWebView(config: config)
+        let page = """
+        <html><head></head><body>
+        <script>
+        (function(){
+          var h = {101:'10001',103:'did',104:'sid',105:'',106:'0',108:'0',109:'0a140a64006401ff',110:'aa',111:1,120:{},130:'1',140:'v',141:'',142:6550};
+          Object.keys(h);
+          window.__keysOut = h[142];
+          window.__keysFrom = window.__mt741styleFrom || 0;
+        })();
+        </script>
+        </body></html>
+        """
+        webView.loadHTMLString(page, baseURL: URL(string: "https://h5.moutai519.com.cn/"))
+        try await waitUntil(webView, seconds: 8) { wv in
+            let v = try? await wv.evaluateJavaScript("window.__keysOut")
+            if let n = v as? Int, n > 0 { return String(n) }
+            if let n = v as? Double, n > 0 { return String(Int(n)) }
+            if let n = v as? NSNumber, n.intValue > 0 { return n.stringValue }
+            return nil
+        }
+        let raw = try await webView.evaluateJavaScript(
+            "JSON.stringify({out:window.__keysOut,from:window.__keysFrom})"
+        )
+        let text = (raw as? String) ?? String(describing: raw)
+        print("H5SIM keys dump \(text)")
+        XCTAssertTrue(text.contains("19130"), "objectToArray 前 Object.keys 应抬 142，实际：\(text)")
+    }
+
     func testEsModuleStyleTotalIsLiftedInWK() async throws {
         let content = WKUserContentController()
         content.addUserScript(WKUserScript(
