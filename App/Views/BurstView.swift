@@ -42,7 +42,7 @@ struct BurstView: View {
                     }
                     .disabled(busy)
                     .accessibilityIdentifier("burst.auto")
-                    Text("一点：加载官方商品页 → wasm 现签 CWB → 拉当日 actId → 页内开火 → 组单支付。先登录。")
+                    Text("上面就是官网商品页。登录后点「自动出单」：页内 wasm 现签 CWB → 拉当日 actId → 开火 → 组单支付。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -162,7 +162,7 @@ struct BurstView: View {
                 Button("取消", role: .cancel) {}
                 Button("开火") { Task { await runBurst(.h5Page) } }
             } message: {
-                Text("在后台挂着的官方商品页里用 XHR 抢 SKU \(productStore.selected.sku)（\(productStore.selected.volume)），页内 wasm 现签 CWB。命中后自动组单、order/pay、拉起支付宝。")
+                Text("在屏幕上的官方商品页里用 XHR 抢 SKU \(productStore.selected.sku)（\(productStore.selected.volume)），页内 wasm 现签 CWB。命中后自动组单、order/pay、拉起支付宝。")
             }
             .alert("直连官方地址", isPresented: $confirmOfficial) {
                 Button("取消", role: .cancel) {}

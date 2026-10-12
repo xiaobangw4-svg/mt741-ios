@@ -23,6 +23,25 @@ final class MT741UITests: XCTestCase {
         XCTAssertTrue(title100.label.contains("100ml"))
     }
 
+    func testOnScreenOfficialH5Stage() {
+        let app = XCUIApplication()
+        app.launch()
+        let status = app.staticTexts["h5.stageStatus"]
+        XCTAssertTrue(status.waitForExistence(timeout: 10), "屏幕上应有官网商品页状态条")
+        XCTAssertTrue(status.label.contains("CWB"), "状态条应含 CWB，实际：\(status.label)")
+        XCTAssertTrue(app.tabBars.buttons["商品"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["异步"].exists)
+        XCTAssertTrue(app.tabBars.buttons["登录"].exists)
+        XCTAssertTrue(app.tabBars.buttons["环境"].exists)
+        XCTAssertFalse(app.tabBars.buttons["H5"].exists, "H5 已接到屏幕上，不再单独占一个 Tab")
+        let web = app.webViews["h5.webview"]
+        let container = app.otherElements["h5.container"]
+        XCTAssertTrue(
+            web.waitForExistence(timeout: 8) || container.waitForExistence(timeout: 2),
+            "官网 WK 应在屏幕上"
+        )
+    }
+
     func testBurstMockStartExists() {
         let app = XCUIApplication()
         app.launch()

@@ -1,65 +1,32 @@
 import SwiftUI
 import WebKit
 
-struct H5WebView: View {
-    @EnvironmentObject private var sessionStore: SessionStore
-    @EnvironmentObject private var cwbStore: CWBStore
-    @EnvironmentObject private var h5Runtime: H5Runtime
-    @EnvironmentObject private var productStore: ProductStore
-
-    var body: some View {
-        NavigationStack {
-            WebViewContainer(
-                runtime: h5Runtime,
-                session: sessionStore.session,
-                cwbStore: cwbStore,
-                product: productStore.selected
-            )
-                .ignoresSafeArea(edges: .bottom)
-                .navigationTitle("官方 H5")
-                .navigationBarTitleDisplayMode(.inline)
-                .accessibilityIdentifier("h5.container")
-                .toolbar {
-                    ToolbarItem(placement: .status) {
-                        Text(h5Status)
-                            .font(.caption.monospaced())
-                            .accessibilityIdentifier("h5.cwb")
-                    }
-                }
-        }
-    }
-
-    private var h5Status: String {
-        if !cwbStore.cwb.isEmpty {
-            return "CWB \(cwbStore.cwb.count)"
-        }
-        if h5Runtime.ready {
-            return "页已加载，等 CWB"
-        }
-        return "加载商品页…"
-    }
-}
-
+/// SwiftUI owns this box; the official product WK lives inside it so StyleTotal
+/// sees real laid-out pixels (same as 官网真机 smsp-detail).
 struct WebViewContainer: UIViewRepresentable {
     let runtime: H5Runtime
     let session: Session
     let cwbStore: CWBStore
     let product: Product
 
-    func makeUIView(context: Context) -> WKWebView {
+    func makeUIView(context: Context) -> UIView {
+        let box = UIView()
+        box.backgroundColor = .white
+        box.clipsToBounds = true
+        box.accessibilityIdentifier = "h5.stageBox"
+        embed(runtime.webView, in: box)
         runtime.bindIfNeeded(session: session, cwbStore: cwbStore, product: product)
-        return runtime.webView
+        return box
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {
+    func updateUIView(_ uiView: UIView, context: Context) {
+        embed(runtime.webView, in: uiView)
         runtime.bindIfNeeded(session: session, cwbStore: cwbStore, product: product)
     }
 
-    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
-        let runtime = coordinator.runtime
-        Task { @MainActor in
-            runtime.park()
-        }
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        _ = coordinator
+        _ = uiView
     }
 
     func makeCoordinator() -> Coordinator {
@@ -69,5 +36,19 @@ struct WebViewContainer: UIViewRepresentable {
     final class Coordinator {
         let runtime: H5Runtime
         init(runtime: H5Runtime) { self.runtime = runtime }
+    }
+
+    private func embed(_ view: WKWebView, in box: UIView) {
+        view.isHidden = false
+        view.alpha = 1
+        view.isUserInteractionEnabled = true
+        view.isOpaque = true
+        view.backgroundColor = .white
+        if view.superview !== box {
+            view.removeFromSuperview()
+            box.addSubview(view)
+        }
+        view.frame = box.bounds
+        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     }
 }

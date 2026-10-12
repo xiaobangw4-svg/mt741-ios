@@ -45,7 +45,6 @@ final class H5Runtime: NSObject, ObservableObject {
         super.init()
         proxy.owner = self
         webView.navigationDelegate = proxy
-        HiddenWebHost.attach(webView)
         sdkInstallTask = Task { [weak self] in
             await self?.clearSdkBlockOnce()
         }
@@ -79,7 +78,7 @@ final class H5Runtime: NSObject, ObservableObject {
     }
 
     func park() {
-        HiddenWebHost.attach(webView)
+        HiddenWebHost.attachIfIdle(webView)
     }
 
     func bindIfNeeded(session: Session, cwbStore: CWBStore, product: Product = .sku741, forceLoad: Bool = false) {
@@ -513,6 +512,8 @@ enum H5PageStart {
     ]
 }
 
+/// Fallback host used by unit tests and the brief window before SwiftUI parents
+/// the WK. ContentView's on-screen stage is the real layout surface.
 enum HiddenWebHost {
     private static let host: UIView = {
         let view = UIView(frame: CGRect(x: 0, y: 0, width: 375, height: 667))
