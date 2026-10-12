@@ -72,6 +72,15 @@ enum StyleTotalSDK {
           window.__mt741styleFrom=\(hits);
           window.__mt741stylePatched=true;
           window.__mt741sdkRewritten=true;
+          try {
+            var cs=document.currentScript;
+            window.__mt741csAtBoot={
+              src:(cs&&cs.src)||'',
+              dummy:!!(cs&&cs.getAttribute&&cs.getAttribute('data-mt741-sdk')),
+              shim:!!window.__mt741currentScript,
+              hasDummy:!!document.querySelector('script[data-mt741-sdk]')
+            };
+          } catch(e) { window.__mt741csAtBoot={err:String(e)}; }
         })();
         \(patchedSDK)
         """

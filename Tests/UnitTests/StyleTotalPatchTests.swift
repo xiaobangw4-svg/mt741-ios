@@ -125,5 +125,6 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(boot.contains("currentScript"))
         XCTAssertTrue(boot.contains("data-mt741-sdk"))
         XCTAssertTrue(boot.contains("__mt741currentScript"))
+        XCTAssertTrue(boot.contains("__mt741csAtBoot"))
     }
 }
