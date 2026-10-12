@@ -9,8 +9,8 @@ enum HeaderBuilder {
         "Content-Type", "Accept-Encoding", "MT-V", "Sec-Fetch-Mode",
     ]
     static let cookieOrder = [
-        "_d_u", "MT-Device-ID-Wap", "MT-Token-Wap", "_sdk_v_",
-        "acw_tc", "cdn_sec_tc", "_bs_device_id",
+        "MT-Device-ID-Wap", "MT-Token-Wap", "_d_u", "_sdk_v_",
+        "acw_tc", "cdn_sec_tc", "YX_SUPPORT_WEBP",
     ]
     static let skipIfEmpty: Set<String> = ["Content-Web-Bb", "Content-Hh-Bb", "Cookie", "MT-Device-ID"]
     static let sdkVer = "V3.5.0_20260928.1_imaotai"
@@ -19,23 +19,22 @@ enum HeaderBuilder {
     static let referer = "https://h5.moutai519.com.cn/mt/item/smsp-detail?appConfig=2_1_2"
     static let h5UA = CookieBridge.h5UA
 
-    static func cookie(deviceId: String, token: String, dU: String = "", gdxid: String = "") -> String {
+    static func cookie(deviceId: String, token: String, dU: String = "", gdxid: String = "", webp: String? = "0") -> String {
         let tokenWap = token
-        let values: [String: String] = [
-            "_d_u": dU,
+        var values: [String: String] = [
             "MT-Device-ID-Wap": deviceId,
             "MT-Token-Wap": tokenWap,
+            "_d_u": dU,
             "_sdk_v_": sdkVer,
         ]
-        var parts = cookieOrder.compactMap { key -> String? in
+        if let webp, !webp.isEmpty {
+            values["YX_SUPPORT_WEBP"] = webp
+        }
+        _ = gdxid
+        return cookieOrder.compactMap { key -> String? in
             let val = values[key] ?? ""
             return val.isEmpty ? nil : "\(key)=\(val)"
-        }
-        let gdx = gdxid.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !gdx.isEmpty {
-            parts.append("gdxidpyhxdE=\(gdx)")
-        }
-        return parts.joined(separator: "; ")
+        }.joined(separator: "; ")
     }
 
     static func headers(

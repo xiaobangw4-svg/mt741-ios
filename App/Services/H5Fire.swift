@@ -5,7 +5,24 @@ enum H5Fire {
     (function () {
       if (window.__mt741fireReady) return;
       window.__mt741fireReady = true;
+      function expireCookie(name) {
+        var tails = [
+          '; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT',
+          '; path=/; domain=h5.moutai519.com.cn; expires=Thu, 01 Jan 1970 00:00:00 GMT',
+          '; path=/; domain=.moutai519.com.cn; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        ];
+        for (var i = 0; i < tails.length; i++) {
+          try { document.cookie = name + '=' + tails[i]; } catch (e) {}
+        }
+      }
+      function pinRushCookies() {
+        expireCookie('gdxidpyhxdE');
+        expireCookie('_bs_device_id');
+        expireCookie('__snaker__id');
+        try { document.cookie = 'YX_SUPPORT_WEBP=0; path=/'; } catch (e) {}
+      }
       function pinIdentity(deviceId, token, userId) {
+        pinRushCookies();
         if (deviceId) {
           try { document.cookie = 'MT-Device-ID-Wap=' + String(deviceId) + '; path=/'; } catch (e) {}
         }

@@ -320,7 +320,7 @@ enum OrderClient {
         if !session.token.isEmpty {
             request.setValue(session.token, forHTTPHeaderField: "MT-Token")
         }
-        let cookie = HeaderBuilder.cookie(deviceId: deviceId, token: token, dU: dU)
+        let cookie = HeaderBuilder.cookie(deviceId: deviceId, token: token, dU: dU, webp: nil)
         if !cookie.isEmpty {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }

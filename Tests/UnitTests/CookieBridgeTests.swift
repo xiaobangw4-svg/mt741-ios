@@ -12,17 +12,21 @@ final class CookieBridgeTests: XCTestCase {
         )
         let cookies = CookieBridge.cookies(from: session)
         let names = Set(cookies.map(\.name))
-        XCTAssertEqual(names, ["MT-Token-Wap", "MT-Device-ID-Wap"])
+        XCTAssertEqual(names, ["MT-Token-Wap", "MT-Device-ID-Wap", "YX_SUPPORT_WEBP"])
         XCTAssertTrue(cookies.contains { $0.name == "MT-Token-Wap" && $0.value == "wap-cookie" })
         XCTAssertTrue(cookies.contains { $0.name == "MT-Device-ID-Wap" && $0.value == "DEV-1" })
+        XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "0" && $0.domain == CookieBridge.h5Host })
         XCTAssertTrue(cookies.contains { $0.domain == "h5.moutai519.com.cn" })
         XCTAssertFalse(cookies.contains { $0.name == "idCode" })
+        XCTAssertFalse(cookies.contains { CookieBridge.isRushDropCookie($0.name) })
     }
 
-    func testEmptySessionHasDeviceCookieOnly() {
+    func testEmptySessionKeepsDeviceAndWebpZero() {
         let cookies = CookieBridge.cookies(from: Session(deviceId: "DEV-2"))
-        XCTAssertTrue(cookies.allSatisfy { $0.name == "MT-Device-ID-Wap" })
-        XCTAssertEqual(Set(cookies.map(\.value)), ["DEV-2"])
+        let names = Set(cookies.map(\.name))
+        XCTAssertEqual(names, ["MT-Device-ID-Wap", "YX_SUPPORT_WEBP"])
+        XCTAssertTrue(cookies.contains { $0.name == "MT-Device-ID-Wap" && $0.value == "DEV-2" })
+        XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "0" })
     }
 
     func testCookiesUseJWTDeviceIdWhenSessionFieldDrifted() {
@@ -47,5 +51,14 @@ final class CookieBridgeTests: XCTestCase {
         let withDvid = CookieBridge.userAgent(deviceId: "DEV-1", bsDvid: "tok")
         XCTAssertTrue(withDvid.contains("BS-DVID/tok"))
         XCTAssertTrue(CookieBridge.h5UA.contains("device-id/"))
+    }
+
+    func testRushDropsOfficialOmittedCookies() {
+        XCTAssertTrue(CookieBridge.isRushDropCookie("gdxidpyhxdE"))
+        XCTAssertTrue(CookieBridge.isRushDropCookie("_bs_device_id"))
+        XCTAssertTrue(CookieBridge.isRushDropCookie("__snaker__id"))
+        XCTAssertFalse(CookieBridge.isRushDropCookie("_d_u"))
+        XCTAssertFalse(CookieBridge.isRushDropCookie("MT-Token-Wap"))
+        XCTAssertFalse(CookieBridge.isRushDropCookie("YX_SUPPORT_WEBP"))
     }
 }

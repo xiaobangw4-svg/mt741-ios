@@ -36,6 +36,9 @@ final class RushCryptoTests: XCTestCase {
         )
         XCTAssertFalse(headers.contains { $0.0 == "Content-Web-Bb" })
         XCTAssertTrue(headers.contains { $0.0 == "Cookie" && $0.1.contains("MT-Token-Wap=tok") })
+        XCTAssertTrue(headers.contains { $0.0 == "Cookie" && $0.1.contains("YX_SUPPORT_WEBP=0") })
+        XCTAssertFalse(headers.contains { $0.0 == "Cookie" && $0.1.contains("gdxidpyhxdE") })
+        XCTAssertFalse(headers.contains { $0.0 == "Cookie" && $0.1.contains("_bs_device_id") })
         let withCWB = HeaderBuilder.headers(deviceId: "DEV", token: "tok", mtK: "1", mtV: "2", cwb: "abc")
         XCTAssertEqual(withCWB.first?.0, "Content-Web-Bb")
     }

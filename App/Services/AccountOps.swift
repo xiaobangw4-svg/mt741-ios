@@ -207,11 +207,9 @@ enum AccountOps {
 
     static func findIdentityHeaders(session: Session) -> [(String, String)] {
         let token = session.wapToken
-        var cookie = HeaderBuilder.cookie(deviceId: session.authDeviceId, token: token)
+        var cookie = HeaderBuilder.cookie(deviceId: session.authDeviceId, token: token, webp: "1")
         if cookie.isEmpty {
             cookie = "YX_SUPPORT_WEBP=1"
-        } else if !cookie.contains("YX_SUPPORT_WEBP") {
-            cookie += "; YX_SUPPORT_WEBP=1"
         }
         return [
             ("Accept", "application/json, text/javascript, */*; q=0.01"),
@@ -439,7 +437,7 @@ enum AccountOps {
         if !session.token.isEmpty {
             request.setValue(session.token, forHTTPHeaderField: "MT-Token")
         }
-        let cookie = HeaderBuilder.cookie(deviceId: deviceId, token: token)
+        let cookie = HeaderBuilder.cookie(deviceId: deviceId, token: token, webp: nil)
         if !cookie.isEmpty {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }

@@ -18,6 +18,12 @@ final class H5FireTests: XCTestCase {
         XCTAssertTrue(H5Fire.javaScript.contains("_u_id_"))
         XCTAssertTrue(H5Fire.javaScript.contains("didSet"))
         XCTAssertTrue(H5Fire.javaScript.contains("payload.userId"))
+        XCTAssertTrue(H5Fire.javaScript.contains("pinRushCookies"))
+        XCTAssertTrue(H5Fire.javaScript.contains("gdxidpyhxdE"))
+        XCTAssertTrue(H5Fire.javaScript.contains("_bs_device_id"))
+        XCTAssertTrue(H5Fire.javaScript.contains("__snaker__id"))
+        XCTAssertTrue(H5Fire.javaScript.contains("YX_SUPPORT_WEBP=0"))
+        XCTAssertTrue(H5Fire.javaScript.contains("expires=Thu, 01 Jan 1970"))
     }
 
     func testPageHeadersSkipCWBAndIncludeDevice() {

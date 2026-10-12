@@ -20,6 +20,17 @@ enum CookieBridge {
 
     static var h5UA: String { userAgent(deviceId: "MT741") }
 
+    /// Official 08-29 iOS rush Cookie has no 顶象 / short Bangcle / snaker ids.
+    static let rushDropNames: Set<String> = [
+        "gdxidpyhxdE",
+        "_bs_device_id",
+        "__snaker__id",
+    ]
+
+    static func isRushDropCookie(_ name: String) -> Bool {
+        rushDropNames.contains(name)
+    }
+
     static func cookies(from session: Session) -> [HTTPCookie] {
         let token = session.wapToken
         let deviceId = session.authDeviceId
@@ -32,6 +43,7 @@ enum CookieBridge {
             specs.append(("MT-Token-Wap", token, h5Host))
             specs.append(("MT-Token-Wap", token, appHost))
         }
+        specs.append(("YX_SUPPORT_WEBP", "0", h5Host))
         return specs.compactMap { name, value, host in
             HTTPCookie(properties: [
                 .domain: host,
@@ -47,8 +59,11 @@ enum CookieBridge {
         let store = WKWebsiteDataStore.default().httpCookieStore
         let next = cookies(from: session)
         store.getAllCookies { existing in
-            let stale = existing.filter {
-                $0.name == "MT-Token-Wap" || $0.name == "MT-Device-ID-Wap"
+            let stale = existing.filter { cookie in
+                cookie.name == "MT-Token-Wap"
+                    || cookie.name == "MT-Device-ID-Wap"
+                    || cookie.name == "YX_SUPPORT_WEBP"
+                    || isRushDropCookie(cookie.name)
             }
             let group = DispatchGroup()
             for cookie in stale {
