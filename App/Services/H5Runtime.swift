@@ -18,19 +18,15 @@ final class H5Runtime: NSObject, ObservableObject {
     fileprivate static let jsHandlerName = "mt741js"
     private var didClearSdkBlock = false
     private var sdkInstallTask: Task<Void, Never>?
+    private var bridgeSession: Session?
 
     override init() {
         let content = WKUserContentController()
-        for source in H5PageStart.scripts {
-            content.addUserScript(WKUserScript(
-                source: source,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: false,
-                in: .page
-            ))
-        }
+        H5Runtime.addPageScripts(to: content, session: nil)
         content.add(proxy, name: CWBHook.handlerName)
         content.add(proxy, name: H5Runtime.jsHandlerName)
+        content.add(proxy, name: JSBridge.wvjbHandlerName)
+        content.add(proxy, name: JSBridge.jxbHandlerName)
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController = content
@@ -87,6 +83,8 @@ final class H5Runtime: NSObject, ObservableObject {
         pageURL = ""
         lastProbe = ""
         styleStatus = "Style未挂"
+        bridgeSession = nil
+        installPageScripts(session: nil)
         keepInWindow()
         if let url = URL(string: "about:blank") {
             webView.load(URLRequest(url: url))
@@ -95,12 +93,14 @@ final class H5Runtime: NSObject, ObservableObject {
 
     func bindIfNeeded(session: Session, cwbStore: CWBStore, product: Product = .sku741, forceLoad: Bool = false) {
         self.cwbStore = cwbStore
+        self.bridgeSession = session
         keepInWindow()
         let shouldLoad = forceLoad || session.isLoggedIn
         guard shouldLoad else { return }
-        let next = session.cookie + "|" + session.token + "|" + session.authDeviceId + "|" + product.sku
+        let next = session.cookie + "|" + session.token + "|" + session.authDeviceId + "|" + session.userId + "|" + product.sku
         if fingerprint == next, webView.url != nil, !forceLoad { return }
         fingerprint = next
+        installPageScripts(session: session)
         webView.customUserAgent = CookieBridge.userAgent(deviceId: session.authDeviceId)
         Task { [weak self] in
             guard let self else { return }
@@ -523,6 +523,49 @@ final class H5Runtime: NSObject, ObservableObject {
         if isLive { return nil }
         return "先登录，等 H5 商品页加载完（需要官方 wasm 现签 CWB）"
     }
+
+    private func installPageScripts(session: Session?) {
+        let content = webView.configuration.userContentController
+        content.removeAllUserScripts()
+        H5Runtime.addPageScripts(to: content, session: session)
+    }
+
+    static func addPageScripts(to content: WKUserContentController, session: Session?) {
+        for source in H5PageStart.scripts {
+            content.addUserScript(WKUserScript(
+                source: source,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false,
+                in: .page
+            ))
+        }
+        if let session, !session.userId.isEmpty {
+            content.addUserScript(WKUserScript(
+                source: JSBridge.identityJavaScript(session: session),
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: false,
+                in: .page
+            ))
+        }
+    }
+
+    fileprivate func handleBridge(_ message: WKScriptMessage) {
+        guard let decision = JSBridge.decide(name: message.name, body: message.body, session: bridgeSession) else {
+            return
+        }
+        let js = JSBridge.callbackJavaScript(decision)
+        if !js.isEmpty {
+            webView.evaluateJavaScript(js, completionHandler: nil)
+        }
+        if !decision.pinUserId.isEmpty {
+            webView.evaluateJavaScript(JSBridge.pinJavaScript(userId: decision.pinUserId), completionHandler: nil)
+        }
+    }
+
+    fileprivate func pushBridgeIdentity() {
+        guard let session = bridgeSession, !session.userId.isEmpty else { return }
+        webView.evaluateJavaScript(JSBridge.pushUserIdJavaScript(userId: session.userId), completionHandler: nil)
+    }
 }
 
 enum H5PageStart {
@@ -530,6 +573,7 @@ enum H5PageStart {
         StyleTotalPatch.javaScript,
         CWBHook.javaScript,
         H5Fire.javaScript,
+        JSBridge.javaScript,
     ]
 }
 
@@ -602,9 +646,21 @@ extension H5Runtime {
                 }
                 return
             }
+            if JSBridge.isHandler(message.name) {
+                DispatchQueue.main.async {
+                    self.owner?.handleBridge(message)
+                }
+                return
+            }
             guard message.name == CWBHook.handlerName else { return }
             DispatchQueue.main.async {
                 self.owner?.cwbStore?.ingest(body)
+            }
+        }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            DispatchQueue.main.async {
+                self.owner?.pushBridgeIdentity()
             }
         }
 
@@ -613,6 +669,7 @@ extension H5Runtime {
                 self.owner?.pageURL = webView.url?.absoluteString ?? ""
                 self.owner?.ready = self.owner?.isLive ?? false
                 self.owner?.keepInWindow()
+                self.owner?.pushBridgeIdentity()
                 Task { await self.owner?.refreshStyleStatus() }
             }
         }

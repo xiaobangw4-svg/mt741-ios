@@ -41,9 +41,10 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(js.contains("Node.prototype.appendChild"))
         XCTAssertTrue(js.contains("minWidth = '220px'"))
         XCTAssertTrue(js.contains("liftJsonText"))
-        XCTAssertEqual(H5PageStart.scripts.count, 3)
+        XCTAssertEqual(H5PageStart.scripts.count, 4)
         XCTAssertTrue(H5PageStart.scripts[0].contains("__mt741hookStyle"))
         XCTAssertTrue(H5PageStart.scripts[1].contains("__mt741hookCWB"))
+        XCTAssertTrue(H5PageStart.scripts[3].contains("kYXScriptHandlerName"))
     }
 
     func testLiftKeepsFiveDigitHash() {
