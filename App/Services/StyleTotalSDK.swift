@@ -30,15 +30,30 @@ enum StyleTotalSDK {
         return text
     }
 
+    static func jsonString(_ raw: String) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: [raw])) ?? Data("['']".utf8)
+        let text = String(data: data, encoding: .utf8) ?? "\"\""
+        return String(text.dropFirst().dropLast())
+    }
+
+    /// Chrome CDP rewrites the *body* of `bs_h5.min.js` and still executes it as a
+    /// classic page script with the official src (wasm uses currentScript.src).
+    /// WKUserScript itself cannot host Bangcle (simulator: shim ok, wasm dead).
     static func bootstrap(patchedSDK: String, hits: Int) -> String {
         let url = remoteURL.absoluteString
+        let body = jsonString(patchedSDK)
         return """
         (function(){
+          window.__mt741sdkRewritten=true;
+          window.__mt741styleFrom=\(hits);
+          window.__mt741stylePatched=true;
           var src='\(url)';
           var dummy=document.createElement('script');
-          dummy.src=src;
+          dummy.__mt741sdk=true;
+          dummy.type='text/plain';
           dummy.async=false;
           dummy.setAttribute('data-mt741-sdk','1');
+          dummy.src=src;
           try { (document.documentElement||document).appendChild(dummy); } catch(e) {}
           function shim(obj){
             try {
@@ -69,9 +84,6 @@ enum StyleTotalSDK {
               }
             } catch(e) {}
           }
-          window.__mt741styleFrom=\(hits);
-          window.__mt741stylePatched=true;
-          window.__mt741sdkRewritten=true;
           try {
             var cs=document.currentScript;
             window.__mt741csAtBoot={
@@ -81,8 +93,10 @@ enum StyleTotalSDK {
               hasDummy:!!document.querySelector('script[data-mt741-sdk]')
             };
           } catch(e) { window.__mt741csAtBoot={err:String(e)}; }
+          var s=document.createElement('script');
+          s.text=\(body);
+          try { (document.documentElement||document).appendChild(s); } catch(e) {}
         })();
-        \(patchedSDK)
         """
     }
 
@@ -92,7 +106,7 @@ enum StyleTotalSDK {
         if let cachedPatched { return cachedPatched }
         var req = URLRequest(url: remoteURL)
         req.timeoutInterval = 15
-        req.cachePolicy = .returnCacheDataElseLoad
+        req.cachePolicy = .reloadIgnoringLocalCacheData
         req.setValue(CookieBridge.h5UA, forHTTPHeaderField: "User-Agent")
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)

@@ -61,9 +61,18 @@ final class H5Runtime: NSObject, ObservableObject {
     }
 
     private func installStyleSDKOnce() async {
-        // Simulator: UserScript + content-rule block makes currentScript shim work, but
-        // __SIGN_WASM_OK__ stays false and CWB stays empty. Bangcle must run as the
-        // parser-inserted https://.../bs_h5.min.js so wasm resolves on the CDN.
+        if didInstallPatchedSDK { return }
+        guard let source = await StyleTotalSDK.fetchPatched() else { return }
+        if didInstallPatchedSDK { return }
+        guard let rules = await StyleTotalSDK.loadContentRules() else { return }
+        if didInstallPatchedSDK { return }
+        webView.configuration.userContentController.addUserScript(WKUserScript(
+            source: source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true,
+            in: .page
+        ))
+        webView.configuration.userContentController.add(rules)
         didInstallPatchedSDK = true
     }
 

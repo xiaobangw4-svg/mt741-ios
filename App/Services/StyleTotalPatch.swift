@@ -246,6 +246,7 @@ enum StyleTotalPatch {
         window.fetch = disguise(function (input, init) {
           var url = (typeof input === 'string') ? input : ((input && input.url) || '');
           var p = orig.apply(this, arguments);
+          if (window.__mt741sdkRewritten) return p;
           if (!/bs_h5(\.min)?\.js/i.test(String(url))) return p;
           return p.then(function (res) {
             return res.text().then(function (text) {
@@ -272,6 +273,7 @@ enum StyleTotalPatch {
           return patchSrc(xhr.responseText || '');
         }
         function hijack(el, url) {
+          if (window.__mt741sdkRewritten) return;
           if (!el || el.__mt741sdk) return;
           el.__mt741sdk = true;
           try { el.removeAttribute('integrity'); } catch (e) {}
@@ -322,6 +324,7 @@ enum StyleTotalPatch {
           return /bs_h5(\.min)?\.js/i.test(String(url || ''));
         }
         function intercept(el) {
+          if (window.__mt741sdkRewritten) return;
           if (!el || el.__mt741sdk) return;
           var url = '';
           try { url = el.getAttribute('src') || el.src || ''; } catch (e) {}

@@ -19,6 +19,7 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(js.contains("hookStyleTotalAssign()"))
         XCTAssertTrue(js.contains("hookScriptSrc()"))
         XCTAssertTrue(js.contains("hookGCS()"))
+        XCTAssertTrue(js.contains("__mt741sdkRewritten"))
         XCTAssertTrue(js.contains("bumpPx"))
         XCTAssertTrue(js.contains("isProbe"))
         XCTAssertTrue(js.contains("width: bumpPx(st.width)"))
@@ -122,9 +123,11 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(boot.contains("_h<10000"))
         XCTAssertTrue(boot.contains(StyleTotalSDK.remoteURL.absoluteString))
         XCTAssertTrue(boot.contains("document.createElement('script')"))
+        XCTAssertTrue(boot.contains("s.text="))
         XCTAssertTrue(boot.contains("currentScript"))
         XCTAssertTrue(boot.contains("data-mt741-sdk"))
         XCTAssertTrue(boot.contains("__mt741currentScript"))
         XCTAssertTrue(boot.contains("__mt741csAtBoot"))
+        XCTAssertTrue(StyleTotalSDK.jsonString("a\"b").contains("\\\""))
     }
 }
