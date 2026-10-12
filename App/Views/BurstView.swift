@@ -33,6 +33,13 @@ struct BurstView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("日志") {
+                    Text(log)
+                        .font(.footnote.monospaced())
+                        .textSelection(.enabled)
+                        .frame(minHeight: 88, alignment: .topLeading)
+                        .accessibilityIdentifier("burst.log")
+                }
                 Section {
                     Text(pipelineStatus)
                         .font(.footnote.monospaced())
@@ -141,12 +148,6 @@ struct BurstView: View {
                         .accessibilityIdentifier("burst.yidun")
                     Button("打开支付") { showPay = true }
                         .accessibilityIdentifier("burst.pay")
-                }
-                Section("日志") {
-                    Text(log)
-                        .font(.footnote.monospaced())
-                        .textSelection(.enabled)
-                        .accessibilityIdentifier("burst.log")
                 }
             }
             .navigationTitle("异步")

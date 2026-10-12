@@ -45,6 +45,7 @@ final class MT741UITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         tapTab(app, "异步")
+        XCTAssertTrue(app.staticTexts["burst.log"].waitForExistence(timeout: 8), "日志应在异步页最上面")
         XCTAssertTrue(app.buttons["burst.auto"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["burst.fetchAct"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["burst.fetchHint"].waitForExistence(timeout: 5))
