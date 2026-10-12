@@ -135,6 +135,7 @@ final class H5SimulatorTests: XCTestCase {
             csDummy: !!boot.dummy,
             hasDummy: !!boot.hasDummy,
             dummyNow: !!document.querySelector('script[data-mt741-sdk]'),
+            wasmErr: String(window.__mt741wasmErr||''),
             scripts: scripts,
             style: String(window.__mt741styleFrom||0)
           });

@@ -78,8 +78,14 @@ enum CWBHook {
               if (u2.indexOf('purchaseInfoV2') >= 0 && res && res.clone) {
                 res.clone().text().then(function (t) { window.__mt741purchaseInfo = String(t || ''); }).catch(function () {});
               }
+              if (res && !res.ok && /wasm/i.test(u2)) {
+                window.__mt741wasmErr = String(res.status) + ' ' + u2;
+              }
             } catch (e) {}
             return res;
+          }, function (err) {
+            if (/wasm/i.test(url)) { window.__mt741wasmErr = String(err) + ' ' + url; }
+            throw err;
           });
         };
       }
