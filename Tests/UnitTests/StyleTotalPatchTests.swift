@@ -96,12 +96,21 @@ final class StyleTotalPatchTests: XCTestCase {
     }
 
     func testNativeSDKPatchRewritesOfficialLoop() {
-        let src = "prefix;" + StyleTotalPatch.loopFrom + ";suffix"
+        let src = "prefix;" + StyleTotalPatch.loopFrom + ";"
+            + StyleTotalSDK.wasmBaseFrom + ";"
+            + StyleTotalSDK.wasmScriptFrom + ";suffix"
         let out = StyleTotalSDK.patch(src)
         XCTAssertEqual(out.hits, 1)
+        XCTAssertTrue(StyleTotalSDK.wasmBaseTo.contains(StyleTotalSDK.wasmCDN))
+        XCTAssertTrue(StyleTotalSDK.wasmScriptTo.contains(StyleTotalSDK.remoteURL.absoluteString))
         XCTAssertTrue(out.text.contains("_h<10000"))
+        XCTAssertTrue(out.text.contains(StyleTotalSDK.wasmCDN))
+        XCTAssertTrue(out.text.contains(StyleTotalSDK.remoteURL.absoluteString))
         XCTAssertFalse(out.text.contains(StyleTotalPatch.loopFrom))
+        XCTAssertFalse(out.text.contains(StyleTotalSDK.wasmBaseFrom))
+        XCTAssertFalse(out.text.contains(#"p="undefined"!=typeof document"#))
         XCTAssertEqual(StyleTotalSDK.patch("no loop here").hits, 0)
+        XCTAssertEqual(StyleTotalSDK.patch("prefix;" + StyleTotalPatch.loopFrom + ";suffix").hits, 0)
     }
 
     func testContentRuleBlocksBsH5Scripts() throws {
@@ -117,17 +126,21 @@ final class StyleTotalPatchTests: XCTestCase {
     }
 
     func testBootstrapMarksRewrittenAndKeepsPatchedLoop() {
-        let patched = StyleTotalSDK.patch("x" + StyleTotalPatch.loopFrom + "y").text
+        let src = "x" + StyleTotalPatch.loopFrom + StyleTotalSDK.wasmBaseFrom + StyleTotalSDK.wasmScriptFrom + "y"
+        let patched = StyleTotalSDK.patch(src).text
         let boot = StyleTotalSDK.bootstrap(patchedSDK: patched, hits: 1)
         XCTAssertTrue(boot.contains("__mt741sdkRewritten=true"))
         XCTAssertTrue(boot.contains("_h<10000"))
         XCTAssertTrue(boot.contains(StyleTotalSDK.remoteURL.absoluteString))
+        XCTAssertTrue(boot.contains(StyleTotalSDK.wasmCDN))
         XCTAssertTrue(boot.contains("document.createElement('script')"))
-        XCTAssertTrue(boot.contains("s.text="))
+        XCTAssertFalse(boot.contains("s.text="))
         XCTAssertTrue(boot.contains("currentScript"))
         XCTAssertTrue(boot.contains("data-mt741-sdk"))
         XCTAssertTrue(boot.contains("__mt741currentScript"))
         XCTAssertTrue(boot.contains("__mt741csAtBoot"))
+        XCTAssertTrue(boot.contains("__mt741wasmFetch"))
+        XCTAssertTrue(boot.contains("stub"))
         XCTAssertTrue(StyleTotalSDK.jsonString("a\"b").contains("\\\""))
     }
 }
