@@ -30,9 +30,6 @@ final class H5SimulatorTests: XCTestCase {
             forMainFrameOnly: true,
             in: .page
         ))
-        if let rules = await StyleTotalSDK.loadContentRules() {
-            content.add(rules)
-        }
         let config = WKWebViewConfiguration()
         config.userContentController = content
         config.defaultWebpagePreferences.allowsContentJavaScript = true

@@ -1,14 +1,10 @@
 import Foundation
 import WebKit
 
-/// Chrome sign pool rewrites `bs_h5.min.js` on the wire. WK ignores JS `src` setters for
-/// parser-inserted scripts, so do the same rewrite natively: fetch, patch StyleTotal, block
-/// the original script, run the patched copy as a document-start UserScript.
-///
-/// Bangcle resolves `stub.117.wasm` / `sign.wasm` from `document.currentScript.src`.
-/// UserScript and inline `s.text` both leave that empty, so pin the CDN base in the
-/// patched body. CSP also blocks classic inline scripts on H5; do not host Bangcle
-/// via `script.text`.
+/// Chrome sign pool rewrites `bs_h5.min.js` on the wire. WK cannot intercept HTTPS,
+/// and hosting Bangcle as a UserScript or inline `s.text` leaves wasm dead on device
+/// (CWB empty). Runtime therefore lets the official parser-inserted SDK load.
+/// Source-rewrite helpers stay for tests and a future on-the-wire rewrite.
 enum StyleTotalSDK {
     static let remoteURL = URL(string: "https://resource.moutai519.com.cn/mt-resource/static-union/bs_h5.min.js")!
     static let wasmCDN = "https://resource.moutai519.com.cn/mt-resource/static-union/"
@@ -165,6 +161,17 @@ enum StyleTotalSDK {
                 encodedContentRuleList: json
             ) { list, _ in
                 cont.resume(returning: list)
+            }
+        }
+    }
+
+    @MainActor
+    static func removeContentRules(from controller: WKUserContentController) async {
+        controller.removeAllContentRuleLists()
+        guard let store = WKContentRuleListStore.default() else { return }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            store.removeContentRuleList(forIdentifier: ruleIdentifier) { _ in
+                cont.resume()
             }
         }
     }

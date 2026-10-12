@@ -367,9 +367,6 @@ enum StyleTotalPatch {
         try { hookGCS(); } catch (e) {}
         try { hookStyleTotalAssign(); } catch (e) {}
         try { hookDefineProperty(); } catch (e) {}
-        try { hookBeforeLoad(); } catch (e) {}
-        try { hookScriptSrc(); } catch (e) {}
-        try { hookFetch(); } catch (e) {}
         try {
           if (typeof window.StyleTotal === 'function') {
             window.StyleTotal = wrapFn(window.StyleTotal);

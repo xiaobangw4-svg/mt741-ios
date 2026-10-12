@@ -17,17 +17,14 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(StyleTotalPatch.loopTo.contains("_h<10000"))
         XCTAssertFalse(js.contains("delete Object.prototype.StyleTotal"))
         XCTAssertTrue(js.contains("hookStyleTotalAssign()"))
-        XCTAssertTrue(js.contains("hookScriptSrc()"))
         XCTAssertTrue(js.contains("hookGCS()"))
-        XCTAssertTrue(js.contains("__mt741sdkRewritten"))
         XCTAssertTrue(js.contains("bumpPx"))
         XCTAssertTrue(js.contains("isProbe"))
         XCTAssertTrue(js.contains("width: bumpPx(st.width)"))
         XCTAssertFalse(js.contains("new Proxy"))
-        XCTAssertTrue(js.contains("beforeload"))
-        XCTAssertTrue(js.contains("HTMLScriptElement.prototype"))
-        XCTAssertTrue(js.contains("xhr.open('GET', url, false)"))
-        XCTAssertTrue(js.contains("bs_h5"))
+        XCTAssertFalse(js.contains("try { hookScriptSrc(); }"))
+        XCTAssertFalse(js.contains("try { hookBeforeLoad(); }"))
+        XCTAssertFalse(js.contains("try { hookFetch(); }"))
         XCTAssertTrue(js.contains("Object.defineProperty"))
         XCTAssertEqual(H5PageStart.scripts.count, 3)
         XCTAssertTrue(H5PageStart.scripts[0].contains("__mt741hookStyle"))
@@ -113,16 +110,9 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertEqual(StyleTotalSDK.patch("prefix;" + StyleTotalPatch.loopFrom + ";suffix").hits, 0)
     }
 
-    func testContentRuleBlocksBsH5Scripts() throws {
-        let data = try XCTUnwrap(StyleTotalSDK.contentRuleJSON.data(using: .utf8))
-        let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
-        XCTAssertEqual(rows.count, 1)
-        let trigger = try XCTUnwrap(rows[0]["trigger"] as? [String: Any])
-        let action = try XCTUnwrap(rows[0]["action"] as? [String: Any])
-        XCTAssertEqual(action["type"] as? String, "block")
-        XCTAssertEqual(trigger["url-filter"] as? String, #".*bs_h5.*\.js"#)
-        let types = (trigger["resource-type"] as? [Any])?.compactMap { $0 as? String }
-        XCTAssertEqual(types, ["script"])
+    func testContentRuleIdentifierIsStableForRemoval() {
+        XCTAssertEqual(StyleTotalSDK.ruleIdentifier, "mt741-block-bs-h5")
+        XCTAssertTrue(StyleTotalSDK.contentRuleJSON.contains("bs_h5"))
     }
 
     func testBootstrapMarksRewrittenAndKeepsPatchedLoop() {

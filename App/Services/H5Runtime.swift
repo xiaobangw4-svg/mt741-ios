@@ -16,7 +16,7 @@ final class H5Runtime: NSObject, ObservableObject {
     private var pendingJS: [String: CheckedContinuation<Any?, Error>] = [:]
     private let proxy = BridgeProxy()
     fileprivate static let jsHandlerName = "mt741js"
-    private var didInstallPatchedSDK = false
+    private var didClearSdkBlock = false
     private var sdkInstallTask: Task<Void, Never>?
 
     override init() {
@@ -47,7 +47,7 @@ final class H5Runtime: NSObject, ObservableObject {
         webView.navigationDelegate = proxy
         HiddenWebHost.attach(webView)
         sdkInstallTask = Task { [weak self] in
-            await self?.installStyleSDKOnce()
+            await self?.clearSdkBlockOnce()
         }
     }
 
@@ -55,25 +55,18 @@ final class H5Runtime: NSObject, ObservableObject {
         if let sdkInstallTask {
             await sdkInstallTask.value
         }
-        if !didInstallPatchedSDK {
-            await installStyleSDKOnce()
+        if !didClearSdkBlock {
+            await clearSdkBlockOnce()
         }
     }
 
-    private func installStyleSDKOnce() async {
-        if didInstallPatchedSDK { return }
-        guard let source = await StyleTotalSDK.fetchPatched() else { return }
-        if didInstallPatchedSDK { return }
-        guard let rules = await StyleTotalSDK.loadContentRules() else { return }
-        if didInstallPatchedSDK { return }
-        webView.configuration.userContentController.addUserScript(WKUserScript(
-            source: source,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true,
-            in: .page
-        ))
-        webView.configuration.userContentController.add(rules)
-        didInstallPatchedSDK = true
+    /// Hosting Bangcle in a UserScript / inline script leaves CWB empty on device.
+    /// Official parser-inserted `bs_h5.min.js` is what actually starts wasm.
+    /// Drop leftover `mt741-block-bs-h5` rules from earlier IPAs.
+    private func clearSdkBlockOnce() async {
+        if didClearSdkBlock { return }
+        await StyleTotalSDK.removeContentRules(from: webView.configuration.userContentController)
+        didClearSdkBlock = true
     }
 
     var isLive: Bool {
@@ -100,7 +93,7 @@ final class H5Runtime: NSObject, ObservableObject {
         webView.customUserAgent = CookieBridge.userAgent(deviceId: session.deviceId)
         Task { [weak self] in
             guard let self else { return }
-            if !self.didInstallPatchedSDK {
+            if !self.didClearSdkBlock {
                 await self.installStyleSDK()
             }
             CookieBridge.apply(session) { [weak self] in
