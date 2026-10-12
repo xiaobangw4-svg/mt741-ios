@@ -259,8 +259,8 @@ struct BurstView: View {
             product: product,
             forceLoad: !h5Runtime.isLive
         )
-        if sessionStore.session.isLoggedIn {
-            _ = await h5Runtime.waitUntilLive(seconds: 8)
+        if sessionStore.session.isLoggedIn, !h5Runtime.ready {
+            _ = await h5Runtime.waitUntilLive(seconds: 6)
         }
         let pulled = await pullActId(product: product)
         applyActId(pulled.0, product: product, via: pulled.1)
@@ -311,8 +311,10 @@ struct BurstView: View {
             product: product,
             forceLoad: !h5Runtime.isLive
         )
-        if let err = await h5Runtime.waitUntilLive(seconds: 12) {
-            log = "H5 未就绪：\(err)，改走 URLSession 拉 actId"
+        if !h5Runtime.ready {
+            if let err = await h5Runtime.waitUntilLive(seconds: 6) {
+                log = "H5 未就绪：\(err)，改走 URLSession 拉 actId"
+            }
         }
         log = "2/4 拉取当日 \(product.volume) actId… \(cwbStore.lengthText)"
         var (info, via) = await pullActId(product: product)
@@ -385,26 +387,12 @@ struct BurstView: View {
                 yidunEpoch += 1
                 let epoch = yidunEpoch
                 showYidun = true
-                extra += "\n4025 已弹官网点图；远程上号隧道自动过点图并行"
+                extra += "\n4025 已弹官网点图；远程上号隧道后台过点图"
                 if YidunSolver.isConfigured(solverURL) {
-                    let passed = await passYidun(hit: hit, product: product)
-                    extra += "\n\(passed.message)"
-                    if epoch == yidunEpoch, passed.ok {
-                        showYidun = false
-                        pendingRetryDest = nil
-                        yidunPassed = true
-                        ydToken = passed.token
-                        if allowYidunRetry, hit.code == 4025 {
-                            log = "易盾已过（远程 8889），带 ydToken 再打一枪…\n\(stats.summary)\(extra)"
-                            await executeBurst(dest, allowYidunRetry: false)
-                            return
-                        }
-                    }
+                    Task { await raceRemoteYidun(hit: hit, product: product, dest: dest, epoch: epoch) }
                 }
-                if !yidunPassed {
-                    log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)\n请在弹层完成点选（本机流量）"
-                    return
-                }
+                log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)\n请在弹层完成点选（本机流量）"
+                return
             }
             if hit.canCompose, hit.orderId.isEmpty, (!hit.needsYidun || yidunPassed) {
                 var addr: [String: Any]?
@@ -437,6 +425,18 @@ struct BurstView: View {
             }
         }
         log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)"
+    }
+
+    private func raceRemoteYidun(hit: RushHit, product: Product, dest: BurstTarget, epoch: Int) async {
+        let passed = await passYidun(hit: hit, product: product)
+        guard epoch == yidunEpoch, passed.ok else { return }
+        showYidun = false
+        pendingRetryDest = nil
+        ydToken = passed.token
+        log = "易盾已过（远程 8889），带 ydToken 再打一枪…\n\(passed.message)"
+        busy = true
+        defer { busy = false }
+        await executeBurst(dest, allowYidunRetry: false)
     }
 
     private func passYidun(hit: RushHit, product: Product) async -> YidunSolver.Result {

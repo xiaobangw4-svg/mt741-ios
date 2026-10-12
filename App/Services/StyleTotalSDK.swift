@@ -48,10 +48,13 @@ enum StyleTotalSDK {
         """
     }
 
+    private static var cachedPatched: String?
+
     static func fetchPatched() async -> String? {
+        if let cachedPatched { return cachedPatched }
         var req = URLRequest(url: remoteURL)
-        req.timeoutInterval = 12
-        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.timeoutInterval = 6
+        req.cachePolicy = .returnCacheDataElseLoad
         req.setValue(CookieBridge.h5UA, forHTTPHeaderField: "User-Agent")
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
@@ -61,7 +64,9 @@ enum StyleTotalSDK {
             guard let text = String(data: data, encoding: .utf8) else { return nil }
             let out = patch(text)
             guard out.hits > 0 else { return nil }
-            return bootstrap(patchedSDK: out.text, hits: out.hits)
+            let boot = bootstrap(patchedSDK: out.text, hits: out.hits)
+            cachedPatched = boot
+            return boot
         } catch {
             return nil
         }

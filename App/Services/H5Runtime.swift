@@ -100,7 +100,9 @@ final class H5Runtime: NSObject, ObservableObject {
         webView.customUserAgent = CookieBridge.userAgent(deviceId: session.deviceId)
         Task { [weak self] in
             guard let self else { return }
-            await self.installStyleSDK()
+            if !self.didInstallPatchedSDK {
+                await self.installStyleSDK()
+            }
             CookieBridge.apply(session) { [weak self] in
                 self?.keepInWindow()
                 self?.webView.load(URLRequest(url: product.h5URL))
@@ -110,7 +112,8 @@ final class H5Runtime: NSObject, ObservableObject {
 
     func fire(request: BurstRequest, session: Session) async -> BurstStats {
         keepInWindow()
-        if let err = await waitUntilReady(seconds: 25, product: request.product, session: session) {
+        let already = await fireFunctionReady()
+        if !already, let err = await waitUntilReady(seconds: 6, product: request.product, session: session) {
             return BurstStats(
                 url: request.target.urlString,
                 n: BurstClient.clampN(request.n),
@@ -253,6 +256,10 @@ final class H5Runtime: NSObject, ObservableObject {
 
     func waitUntilLive(seconds: Double) async -> String? {
         keepInWindow()
+        if isLive, await requestFunctionReady() {
+            ready = true
+            return nil
+        }
         let deadline = Date().addingTimeInterval(seconds)
         var last = "H5 页未就绪"
         while Date() < deadline {
@@ -262,7 +269,7 @@ final class H5Runtime: NSObject, ObservableObject {
                 return nil
             }
             last = pageError() ?? "H5 页未就绪（先登录，等商品页起来）"
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            try? await Task.sleep(nanoseconds: 200_000_000)
         }
         if isLive, await requestFunctionReady() {
             ready = true
@@ -275,12 +282,15 @@ final class H5Runtime: NSObject, ObservableObject {
         if let err = await waitUntilLive(seconds: seconds) {
             return err
         }
-        let deadline = Date().addingTimeInterval(min(8, max(0, seconds)))
+        if await fireFunctionReady() {
+            return nil
+        }
+        let deadline = Date().addingTimeInterval(min(3, max(0, seconds)))
         while Date() < deadline {
-            if await fireFunctionReady(), (cwbStore?.cwb.count ?? 0) >= CWBStore.officialLength - 10 {
+            if await fireFunctionReady() {
                 return nil
             }
-            try? await Task.sleep(nanoseconds: 400_000_000)
+            try? await Task.sleep(nanoseconds: 200_000_000)
         }
         return nil
     }
