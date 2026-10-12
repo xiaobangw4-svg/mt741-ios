@@ -128,4 +128,98 @@ final class AccountOpsTests: XCTestCase {
         XCTAssertFalse(keys.contains("idCardNo"))
         XCTAssertFalse(keys.contains("id_card_no"))
     }
+
+    func testDefaultAddressDraftIsBijieBihai() {
+        let draft = AddressDraft()
+        XCTAssertEqual(draft.provinceId, "520000000")
+        XCTAssertEqual(draft.provinceName, "贵州省")
+        XCTAssertEqual(draft.cityId, "520500000")
+        XCTAssertEqual(draft.cityName, "毕节市")
+        XCTAssertEqual(draft.districtId, "520502000")
+        XCTAssertEqual(draft.districtName, "七星关区")
+        XCTAssertEqual(draft.townId, "520502011")
+        XCTAssertEqual(draft.townName, "碧海街道")
+        XCTAssertTrue(draft.dft)
+        XCTAssertEqual(draft.shipAddressId, 0)
+        XCTAssertTrue(draft.summary.contains("新地址"))
+        XCTAssertEqual(AccountOps.addressUpsertURL.path, "/xhr/front/user/address/ship/upsert")
+        XCTAssertEqual(AccountOps.addressUpsertURL.host, "app.moutai519.com.cn")
+    }
+
+    func testValidateAddressRejectsShortNameAndEmptyRegion() {
+        var draft = AddressDraft()
+        draft.name = "张"
+        draft.mobile = "19000811875"
+        draft.address = "1号"
+        XCTAssertEqual(AccountOps.validateAddress(draft), "收货人姓名过短")
+        draft.name = "张三"
+        draft.mobile = "123"
+        XCTAssertEqual(AccountOps.validateAddress(draft), "收货手机号须为 11 位数字")
+        draft.mobile = "19000811875"
+        draft.address = ""
+        XCTAssertEqual(AccountOps.validateAddress(draft), "省市区街道和详细地址都要填")
+        draft.address = "碧海社区1号"
+        XCTAssertNil(AccountOps.validateAddress(draft))
+    }
+
+    func testAddressDraftFromRowKeepsDefaultRegionWhenMissing() {
+        let draft = AccountOps.addressDraft(
+            from: [
+                "shipAddressId": 37664847,
+                "name": "李四",
+                "mobile": "13800138000",
+                "address": "测试路1号",
+                "dft": 1,
+            ],
+            fallbackMobile: "19000811875"
+        )
+        XCTAssertEqual(draft.shipAddressId, 37664847)
+        XCTAssertEqual(draft.name, "李四")
+        XCTAssertEqual(draft.mobile, "13800138000")
+        XCTAssertEqual(draft.address, "测试路1号")
+        XCTAssertEqual(draft.provinceId, "520000000")
+        XCTAssertEqual(draft.townName, "碧海街道")
+        XCTAssertTrue(draft.dft)
+        let fallback = AccountOps.addressDraft(from: ["name": "王五"], fallbackMobile: "19000811875")
+        XCTAssertEqual(fallback.mobile, "19000811875")
+    }
+
+    func testAddressUpsertBodyMatchesOfficialFields() {
+        var draft = AddressDraft()
+        draft.shipAddressId = 9
+        draft.name = " 张三 "
+        draft.mobile = "+86 190 0081 1875"
+        draft.address = " 碧海社区1号 "
+        let body = AccountOps.addressUpsertBody(
+            draft: draft,
+            session: Session(userId: "1210358433", token: "t")
+        )
+        XCTAssertEqual(JSONText.int(body["shipAddressId"]), 9)
+        XCTAssertEqual(JSONText.string(body["provinceId"]), "520000000")
+        XCTAssertEqual(JSONText.string(body["cityId"]), "520500000")
+        XCTAssertEqual(JSONText.string(body["districtId"]), "520502000")
+        XCTAssertEqual(JSONText.string(body["townId"]), "520502011")
+        XCTAssertEqual(JSONText.string(body["name"]), "张三")
+        XCTAssertEqual(JSONText.string(body["mobile"]), "19000811875")
+        XCTAssertEqual(JSONText.string(body["address"]), "碧海社区1号")
+        XCTAssertEqual(body["dft"] as? Bool, true)
+        XCTAssertEqual(JSONText.int(body["userId"]), 1210358433)
+        XCTAssertNil(AccountOps.requireLogin(Session(userId: "1", token: "t")))
+        XCTAssertEqual(AccountOps.requireLogin(Session()), "请先登录")
+    }
+
+    func testQueryAndSaveAddressStayLocalWhenInvalid() async {
+        let missing = await AccountOps.queryAddress(session: Session())
+        XCTAssertNil(missing.draft)
+        XCTAssertEqual(missing.message, "请先登录")
+        let noLogin = await AccountOps.saveAddress(session: Session(), draft: AddressDraft())
+        XCTAssertFalse(noLogin.ok)
+        XCTAssertEqual(noLogin.message, "请先登录")
+        let short = await AccountOps.saveAddress(
+            session: Session(userId: "1", token: "t"),
+            draft: AddressDraft()
+        )
+        XCTAssertFalse(short.ok)
+        XCTAssertEqual(short.message, "收货人姓名过短")
+    }
 }

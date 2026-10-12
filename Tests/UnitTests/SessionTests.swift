@@ -86,5 +86,33 @@ final class SessionTests: XCTestCase {
         store.alignDeviceFromToken()
         XCTAssertEqual(store.session.deviceId, "03F31C7A-EE47-4287-B71F-A787C69A2A1B")
     }
+
+    func testResetForNextAccountWipesLoginAndRotatesDevice() {
+        let key = SessionStore.defaultsKey
+        let prev = UserDefaults.standard.data(forKey: key)
+        defer {
+            if let prev {
+                UserDefaults.standard.set(prev, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        let store = SessionStore(session: Session(
+            mobile: "19000811875",
+            deviceId: "DEV-OLD",
+            userId: "1210358433",
+            userName: "u",
+            token: "tok",
+            cookie: "wap"
+        ))
+        store.resetForNextAccount()
+        XCTAssertFalse(store.session.isLoggedIn)
+        XCTAssertEqual(store.session.userId, "")
+        XCTAssertEqual(store.session.token, "")
+        XCTAssertEqual(store.session.cookie, "")
+        XCTAssertEqual(store.session.mobile, "")
+        XCTAssertNotEqual(store.session.deviceId, "DEV-OLD")
+        XCTAssertFalse(store.session.deviceId.isEmpty)
+    }
 }
 

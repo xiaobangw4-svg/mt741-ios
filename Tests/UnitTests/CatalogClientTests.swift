@@ -116,4 +116,18 @@ final class CatalogClientTests: XCTestCase {
         XCTAssertEqual(JSONText.string(addr?["shipAddressId"]), "22")
         XCTAssertEqual(JSONText.string(addr?["name"]), "b")
     }
+
+    func testParseAddressFromAddressesKey() {
+        let json: [String: Any] = [
+            "code": 2000,
+            "data": [
+                "addresses": [
+                    ["shipAddressId": 33, "dft": true, "name": "c"],
+                ],
+            ],
+        ]
+        let addr = CatalogClient.parseAddress(json)
+        XCTAssertEqual(JSONText.string(addr?["shipAddressId"]), "33")
+        XCTAssertEqual(JSONText.string(addr?["name"]), "c")
+    }
 }

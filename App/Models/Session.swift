@@ -84,6 +84,10 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    func resetForNextAccount() {
+        session = Session(deviceId: SessionStore.newDeviceId())
+    }
+
     static func newDeviceId() -> String {
         UUID().uuidString.uppercased()
     }

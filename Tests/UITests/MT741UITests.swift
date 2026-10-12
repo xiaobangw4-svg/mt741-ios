@@ -74,6 +74,9 @@ final class MT741UITests: XCTestCase {
         app.launch()
         tapTab(app, "环境")
         XCTAssertTrue(app.staticTexts["env.network"].waitForExistence(timeout: 8), "环境页应有真机说明")
+        reveal(app, app.staticTexts["env.address"])
+        XCTAssertTrue(app.staticTexts["env.address"].waitForExistence(timeout: 5) || app.otherElements["env.address"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["env.cache"].exists || app.otherElements["env.cache"].exists)
     }
 
     private func tapTab(_ app: XCUIApplication, _ name: String) {
@@ -97,12 +100,17 @@ final class MT741UITests: XCTestCase {
         XCTAssertTrue(app.textFields["login.mobile"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["login.sendCode"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["login.clearCache"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["login.status"].waitForExistence(timeout: 5))
         reveal(app, app.buttons["login.realNameSubmit"])
         XCTAssertTrue(app.buttons["login.realNameQuery"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["login.realNameSubmit"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["login.findQuery"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["login.findSubmit"].waitForExistence(timeout: 5))
+        reveal(app, app.buttons["login.addressSave"])
+        XCTAssertTrue(app.textFields["login.addrName"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["login.addressQuery"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["login.addressSave"].waitForExistence(timeout: 5))
         reveal(app, app.buttons["login.cancelAccount"])
         XCTAssertTrue(app.buttons["login.cancelAccount"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.textFields["login.idName"].waitForExistence(timeout: 5))

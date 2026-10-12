@@ -33,5 +33,9 @@ final class CWBHookTests: XCTestCase {
         XCTAssertEqual(store.contentHh, "H1")
         store.ingest(["cwb": "DEF"])
         XCTAssertEqual(store.cwb, "DEF")
+        store.reset()
+        XCTAssertEqual(store.cwb, "")
+        XCTAssertEqual(store.contentHh, "")
+        XCTAssertEqual(store.sourceURL, "")
     }
 }

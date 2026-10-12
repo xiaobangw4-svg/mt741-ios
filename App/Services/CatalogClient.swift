@@ -62,6 +62,9 @@ enum CatalogClient {
         var rows: [[String: Any]] = []
         if let obj = data as? [String: Any] {
             rows = JSONText.array(obj["list"])
+            if rows.isEmpty {
+                rows = JSONText.array(obj["addresses"])
+            }
             if rows.isEmpty, obj["shipAddressId"] != nil {
                 rows = [obj]
             }

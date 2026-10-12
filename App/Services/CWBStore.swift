@@ -12,6 +12,12 @@ final class CWBStore: ObservableObject {
         cwb.isEmpty ? "CWB空" : "CWB \(cwb.count)/\(Self.officialLength)"
     }
 
+    func reset() {
+        cwb = ""
+        contentHh = ""
+        sourceURL = ""
+    }
+
     func ingest(_ body: Any) {
         let parsed = CWBHook.parse(body)
         guard !parsed.cwb.isEmpty else { return }

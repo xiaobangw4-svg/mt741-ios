@@ -81,6 +81,18 @@ final class H5Runtime: NSObject, ObservableObject {
         HiddenWebHost.attachIfIdle(webView)
     }
 
+    func resetSite() {
+        fingerprint = ""
+        ready = false
+        pageURL = ""
+        lastProbe = ""
+        styleStatus = "Style未挂"
+        keepInWindow()
+        if let url = URL(string: "about:blank") {
+            webView.load(URLRequest(url: url))
+        }
+    }
+
     func bindIfNeeded(session: Session, cwbStore: CWBStore, product: Product = .sku741, forceLoad: Bool = false) {
         self.cwbStore = cwbStore
         keepInWindow()

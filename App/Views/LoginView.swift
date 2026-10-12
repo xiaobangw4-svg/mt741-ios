@@ -2,6 +2,8 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject private var sessionStore: SessionStore
+    @EnvironmentObject private var h5Runtime: H5Runtime
+    @EnvironmentObject private var cwbStore: CWBStore
     @State private var mobile = ""
     @State private var vcode = ""
     @State private var idName = ""
@@ -10,6 +12,19 @@ struct LoginView: View {
     @State private var banner = ""
     @State private var realNameStatus = "未查"
     @State private var findStatus = "未查"
+    @State private var addressStatus = "未查"
+    @State private var addrName = ""
+    @State private var addrMobile = ""
+    @State private var addrDetail = ""
+    @State private var addrProvinceId = AddressDraft().provinceId
+    @State private var addrProvinceName = AddressDraft().provinceName
+    @State private var addrCityId = AddressDraft().cityId
+    @State private var addrCityName = AddressDraft().cityName
+    @State private var addrDistrictId = AddressDraft().districtId
+    @State private var addrDistrictName = AddressDraft().districtName
+    @State private var addrTownId = AddressDraft().townId
+    @State private var addrTownName = AddressDraft().townName
+    @State private var addrShipId = 0
     @State private var busy = false
     @State private var confirmCancel = false
 
@@ -43,6 +58,13 @@ struct LoginView: View {
                     Button("退出登录", role: .destructive) { logout() }
                         .disabled(busy)
                         .accessibilityIdentifier("login.logout")
+                    Button("一键清除缓存", role: .destructive) { Task { await clearCache() } }
+                        .disabled(busy)
+                        .accessibilityIdentifier("login.clearCache")
+                    Text("换号前要清。WK 里的 Cookie、_u_id_、Bangcle 指纹会留给下一个号，容易 4011 或 CWB 串身份。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("login.clearNote")
                 }
 
                 Section("状态") {
@@ -95,6 +117,38 @@ struct LoginView: View {
                         .accessibilityIdentifier("login.idNote")
                 }
 
+                Section("收货地址") {
+                    TextField("收货人", text: $addrName)
+                        .accessibilityIdentifier("login.addrName")
+                    TextField("收货手机", text: $addrMobile)
+                        .keyboardType(.numberPad)
+                        .accessibilityIdentifier("login.addrMobile")
+                    TextField("详细地址", text: $addrDetail)
+                        .accessibilityIdentifier("login.addrDetail")
+                    TextField("省", text: $addrProvinceName)
+                        .accessibilityIdentifier("login.addrProvince")
+                    TextField("市", text: $addrCityName)
+                        .accessibilityIdentifier("login.addrCity")
+                    TextField("区", text: $addrDistrictName)
+                        .accessibilityIdentifier("login.addrDistrict")
+                    TextField("街道", text: $addrTownName)
+                        .accessibilityIdentifier("login.addrTown")
+                    Text(addressStatus)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("login.addressStatus")
+                    Button("查询地址") { Task { await queryAddress() } }
+                        .disabled(busy)
+                        .accessibilityIdentifier("login.addressQuery")
+                    Button("保存地址") { Task { await saveAddress() } }
+                        .disabled(busy)
+                        .accessibilityIdentifier("login.addressSave")
+                    Text("默认贵州毕节七星关碧海街道，可改名称。组单要用默认地址。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("login.addressNote")
+                }
+
                 Section("注销账号") {
                     TextField("再输入登录手机号确认", text: $cancelMobile)
                         .keyboardType(.numberPad)
@@ -113,6 +167,9 @@ struct LoginView: View {
             .onAppear {
                 if mobile.isEmpty {
                     mobile = sessionStore.session.mobile
+                }
+                if addrMobile.isEmpty {
+                    addrMobile = sessionStore.session.mobile
                 }
             }
             .alert("注销账号不可逆", isPresented: $confirmCancel) {
@@ -148,12 +205,92 @@ struct LoginView: View {
 
     private func logout() {
         sessionStore.logout()
+        resetSensitiveFields()
+        banner = "已退出"
+    }
+
+    private func clearCache() async {
+        busy = true
+        defer { busy = false }
+        sessionStore.resetForNextAccount()
+        cwbStore.reset()
+        await CookieBridge.wipeWebsiteData()
+        h5Runtime.resetSite()
+        await CookieBridge.applyAsync(sessionStore.session)
+        vcode = ""
+        resetSensitiveFields()
+        banner = "缓存已清，可登录下一个号"
+    }
+
+    private func currentDraft() -> AddressDraft {
+        var draft = AddressDraft()
+        draft.shipAddressId = addrShipId
+        draft.name = addrName
+        draft.mobile = addrMobile.isEmpty ? sessionStore.session.mobile : addrMobile
+        draft.address = addrDetail
+        draft.provinceId = addrProvinceId
+        draft.provinceName = addrProvinceName
+        draft.cityId = addrCityId
+        draft.cityName = addrCityName
+        draft.districtId = addrDistrictId
+        draft.districtName = addrDistrictName
+        draft.townId = addrTownId
+        draft.townName = addrTownName
+        return draft
+    }
+
+    private func applyDraft(_ draft: AddressDraft) {
+        addrShipId = draft.shipAddressId
+        addrName = draft.name
+        addrMobile = draft.mobile
+        addrDetail = draft.address
+        addrProvinceId = draft.provinceId
+        addrProvinceName = draft.provinceName
+        addrCityId = draft.cityId
+        addrCityName = draft.cityName
+        addrDistrictId = draft.districtId
+        addrDistrictName = draft.districtName
+        addrTownId = draft.townId
+        addrTownName = draft.townName
+    }
+
+    private func resetSensitiveFields() {
         idName = ""
         idNo = ""
         cancelMobile = ""
         realNameStatus = "未查"
         findStatus = "未查"
-        banner = "已退出"
+        addressStatus = "未查"
+        applyDraft(AddressDraft())
+        addrName = ""
+        addrMobile = ""
+        addrDetail = ""
+        addrShipId = 0
+    }
+
+    private func queryAddress() async {
+        busy = true
+        defer { busy = false }
+        let result = await AccountOps.queryAddress(session: sessionStore.session)
+        if let draft = result.draft {
+            applyDraft(draft)
+        }
+        addressStatus = result.message
+        banner = result.message
+    }
+
+    private func saveAddress() async {
+        busy = true
+        defer { busy = false }
+        let result = await AccountOps.saveAddress(session: sessionStore.session, draft: currentDraft())
+        addressStatus = result.message
+        banner = result.message
+        if result.ok {
+            let again = await AccountOps.queryAddress(session: sessionStore.session)
+            if let draft = again.draft {
+                applyDraft(draft)
+            }
+        }
     }
 
     private func queryRealName() async {

@@ -42,6 +42,28 @@ struct AccountOpResult: Equatable {
     var message: String
 }
 
+struct AddressDraft: Equatable {
+    var shipAddressId: Int = 0
+    var name: String = ""
+    var mobile: String = ""
+    var address: String = ""
+    var provinceId: String = "520000000"
+    var provinceName: String = "贵州省"
+    var cityId: String = "520500000"
+    var cityName: String = "毕节市"
+    var districtId: String = "520502000"
+    var districtName: String = "七星关区"
+    var townId: String = "520502011"
+    var townName: String = "碧海街道"
+    var dft: Bool = true
+
+    var summary: String {
+        let id = shipAddressId == 0 ? "新地址" : "id=\(shipAddressId)"
+        let who = name.isEmpty ? "未填收货人" : name
+        return "\(id) \(who) \(provinceName)\(cityName)\(districtName)\(townName)\(address)"
+    }
+}
+
 enum AccountOps {
     static let realNameInfoURL = URL(string: "https://app.moutai519.com.cn/xhr/front/user/getRealNameAuthInfo")!
     static let realNameAuthURL = URL(string: "https://app.moutai519.com.cn/xhr/front/user/realNameAuth")!
@@ -49,6 +71,7 @@ enum AccountOps {
     static let findInfoURL = URL(string: "https://h5.moutai519.com.cn/xhr/front/user/getFindIdentityInfo")!
     static let findSubmitURL = URL(string: "https://h5.moutai519.com.cn/xhr/front/user/findIdentity")!
     static let findReferer = "https://h5.moutai519.com.cn/mt/findIdentity"
+    static let addressUpsertURL = URL(string: "https://app.moutai519.com.cn/xhr/front/user/address/ship/upsert")!
 
     static func validateIdCard(_ raw: String) -> String? {
         let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -70,6 +93,83 @@ enum AccountOps {
 
     static func requireLogin(_ session: Session) -> String? {
         session.isLoggedIn ? nil : "请先登录"
+    }
+
+    static func validateAddress(_ draft: AddressDraft) -> String? {
+        let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if name.count < 2 {
+            return "收货人姓名过短"
+        }
+        if let err = AuthDigest.validateMobile(draft.mobile) {
+            return "收货" + err
+        }
+        let pairs = [
+            draft.provinceId, draft.provinceName,
+            draft.cityId, draft.cityName,
+            draft.districtId, draft.districtName,
+            draft.townId, draft.townName,
+            draft.address,
+        ]
+        if pairs.contains(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+            return "省市区街道和详细地址都要填"
+        }
+        return nil
+    }
+
+    static func addressDraft(from row: [String: Any], fallbackMobile: String = "") -> AddressDraft {
+        var draft = AddressDraft()
+        draft.shipAddressId = JSONText.int(row["shipAddressId"]) ?? 0
+        draft.name = JSONText.string(row["name"])
+        let mobile = JSONText.string(row["mobile"])
+        draft.mobile = mobile.isEmpty ? AuthDigest.normalizeMobile(fallbackMobile) : mobile
+        draft.address = JSONText.string(row["address"])
+        let provinceId = JSONText.string(row["provinceId"])
+        if !provinceId.isEmpty { draft.provinceId = provinceId }
+        let provinceName = JSONText.string(row["provinceName"])
+        if !provinceName.isEmpty { draft.provinceName = provinceName }
+        let cityId = JSONText.string(row["cityId"])
+        if !cityId.isEmpty { draft.cityId = cityId }
+        let cityName = JSONText.string(row["cityName"])
+        if !cityName.isEmpty { draft.cityName = cityName }
+        let districtId = JSONText.string(row["districtId"])
+        if !districtId.isEmpty { draft.districtId = districtId }
+        let districtName = JSONText.string(row["districtName"])
+        if !districtName.isEmpty { draft.districtName = districtName }
+        let townId = JSONText.string(row["townId"])
+        if !townId.isEmpty { draft.townId = townId }
+        let townName = JSONText.string(row["townName"])
+        if !townName.isEmpty { draft.townName = townName }
+        if let dft = row["dft"] as? Bool {
+            draft.dft = dft
+        } else if let n = JSONText.int(row["dft"]) {
+            draft.dft = n == 1
+        }
+        return draft
+    }
+
+    static func addressUpsertBody(draft: AddressDraft, session: Session) -> [String: Any] {
+        let userId: Any
+        if let n = Int(session.userId) {
+            userId = n
+        } else {
+            userId = session.userId
+        }
+        return [
+            "shipAddressId": draft.shipAddressId,
+            "provinceId": draft.provinceId.trimmingCharacters(in: .whitespacesAndNewlines),
+            "provinceName": draft.provinceName.trimmingCharacters(in: .whitespacesAndNewlines),
+            "cityId": draft.cityId.trimmingCharacters(in: .whitespacesAndNewlines),
+            "cityName": draft.cityName.trimmingCharacters(in: .whitespacesAndNewlines),
+            "districtId": draft.districtId.trimmingCharacters(in: .whitespacesAndNewlines),
+            "districtName": draft.districtName.trimmingCharacters(in: .whitespacesAndNewlines),
+            "townId": draft.townId.trimmingCharacters(in: .whitespacesAndNewlines),
+            "townName": draft.townName.trimmingCharacters(in: .whitespacesAndNewlines),
+            "address": draft.address.trimmingCharacters(in: .whitespacesAndNewlines),
+            "name": draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
+            "mobile": AuthDigest.normalizeMobile(draft.mobile),
+            "dft": draft.dft,
+            "userId": userId,
+        ]
     }
 
     static func requireCancelConfirm(typed: String, session: Session) -> String? {
@@ -248,6 +348,47 @@ enum AccountOps {
             return info
         } catch {
             return FindIdentityInfo(ok: false, message: AuthClient.describe(error))
+        }
+    }
+
+    static func queryAddress(session: Session) async -> (draft: AddressDraft?, message: String) {
+        if let err = requireLogin(session) {
+            return (nil, err)
+        }
+        let pack = await CatalogClient.fetchAddress(session: session)
+        if let row = pack.address {
+            let draft = addressDraft(from: row, fallbackMobile: session.mobile)
+            return (draft, draft.summary)
+        }
+        return (nil, pack.message)
+    }
+
+    static func saveAddress(session: Session, draft: AddressDraft) async -> AccountOpResult {
+        if let err = requireLogin(session) {
+            return AccountOpResult(ok: false, message: err)
+        }
+        if let err = validateAddress(draft) {
+            return AccountOpResult(ok: false, message: err)
+        }
+        do {
+            let json = try await appPost(
+                url: addressUpsertURL,
+                body: addressUpsertBody(draft: draft, session: session),
+                session: session
+            )
+            let code = AuthClient.jsonCode(json)
+            if code == 2000 || code == 200 {
+                let row = JSONText.object(json["data"])
+                let aid = JSONText.string(row["shipAddressId"])
+                let suffix = aid.isEmpty ? "" : " id=\(aid)"
+                return AccountOpResult(ok: true, message: "收货地址已保存\(suffix)")
+            }
+            return AccountOpResult(
+                ok: false,
+                message: (json["message"] as? String) ?? "地址保存被拒 code=\(code.map(String.init) ?? "nil")"
+            )
+        } catch {
+            return AccountOpResult(ok: false, message: AuthClient.describe(error))
         }
     }
 

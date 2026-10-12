@@ -68,4 +68,16 @@ enum CookieBridge {
             apply(session) { cont.resume() }
         }
     }
+
+    /// Shared WK store keeps _u_id_, Bangcle cookies, and the previous JWT.
+    /// Wipe before the next login or CWB/4011 mix the two numbers.
+    static func wipeWebsiteData() async {
+        let store = WKWebsiteDataStore.default()
+        let types = WKWebsiteDataStore.allWebsiteDataTypes()
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            store.removeData(ofTypes: types, modifiedSince: .distantPast) {
+                cont.resume()
+            }
+        }
+    }
 }
