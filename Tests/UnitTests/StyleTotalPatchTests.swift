@@ -26,6 +26,10 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertFalse(js.contains("try { hookBeforeLoad(); }"))
         XCTAssertFalse(js.contains("try { hookFetch(); }"))
         XCTAssertTrue(js.contains("Object.defineProperty"))
+        XCTAssertTrue(js.contains("__esModule"))
+        XCTAssertTrue(js.contains("Window.prototype"))
+        XCTAssertTrue(js.contains("installStyleTotalSetter"))
+        XCTAssertTrue(js.contains("__mt741esMod"))
         XCTAssertEqual(H5PageStart.scripts.count, 3)
         XCTAssertTrue(H5PageStart.scripts[0].contains("__mt741hookStyle"))
         XCTAssertTrue(H5PageStart.scripts[1].contains("__mt741hookCWB"))
@@ -72,7 +76,8 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true), "Style脚本在")
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 1, from: 0, patched: true), "Style抬位")
         XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 1, patched: true), "Style抬位")
-        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true, bump: 0, gcs: true), "Style抬位")
+        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true, bump: 0, gcs: true), "Style脚本在")
+        XCTAssertEqual(StyleTotalPatch.statusLabel(wrapped: 0, from: 0, patched: true, bump: 1, gcs: true), "Style抬位")
         XCTAssertEqual(
             StyleTotalPatch.statusLabel(fromJSON: #"{"patched":true,"wrapped":1,"from":0}"#),
             "Style抬位"

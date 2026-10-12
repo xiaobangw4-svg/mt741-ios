@@ -29,8 +29,8 @@ enum StyleTotalPatch {
     }
 
     static func statusLabel(wrapped: Int, from: Int, patched: Bool, bump: Int = 0, gcs: Bool = false, rewritten: Bool = false) -> String {
-        if rewritten || wrapped > 0 || from > 0 || bump > 0 || gcs { return "Style抬位" }
-        if patched { return "Style脚本在" }
+        if rewritten || wrapped > 0 || from > 0 || bump > 0 { return "Style抬位" }
+        if patched || gcs { return "Style脚本在" }
         return "Style未挂"
     }
 
@@ -165,19 +165,60 @@ enum StyleTotalPatch {
           });
         } catch (e) {}
       }
+      var nativeDef = Object.defineProperty;
+      function installStyleTotalSetter(obj) {
+        if (!obj || obj.__mt741es) return;
+        try {
+          nativeDef.call(Object, obj, '__mt741es', { value: true, configurable: true });
+        } catch (e0) { obj.__mt741es = true; }
+        window.__mt741esMod = (window.__mt741esMod || 0) + 1;
+        try {
+          var own = Object.getOwnPropertyDescriptor(obj, 'StyleTotal');
+          if (own && typeof own.value === 'function') {
+            if (!own.value.__mt741st) {
+              nativeDef.call(Object, obj, 'StyleTotal', {
+                configurable: true,
+                enumerable: true,
+                writable: true,
+                value: wrapFn(own.value)
+              });
+            }
+            return;
+          }
+          if (own && own.set) return;
+          nativeDef.call(Object, obj, 'StyleTotal', {
+            configurable: true,
+            enumerable: false,
+            set: function (fn) {
+              nativeDef.call(Object, this, 'StyleTotal', {
+                configurable: true,
+                enumerable: true,
+                writable: true,
+                value: wrapFn(fn)
+              });
+            },
+            get: function () { return undefined; }
+          });
+        } catch (e) {}
+      }
       function hookDefineProperty() {
-        if (window.__mt741defStyle) return;
-        window.__mt741defStyle = true;
+        if (Object.defineProperty && Object.defineProperty.__mt741) return;
         try {
           var def = Object.defineProperty;
           var wrapped = function (obj, prop, desc) {
             try {
               if (String(prop) === 'StyleTotal' && desc) desc = wrapDesc(desc);
             } catch (e) {}
-            return def.call(this, obj, prop, desc);
+            var ret = def.call(this, obj, prop, desc);
+            try {
+              if (String(prop) === '__esModule' && obj) installStyleTotalSetter(obj);
+            } catch (e2) {}
+            return ret;
           };
+          wrapped.__mt741 = true;
           disguise(wrapped, def);
           Object.defineProperty = wrapped;
+          window.__mt741defStyle = true;
         } catch (e) {}
       }
       function isProbe(el) {
@@ -194,7 +235,7 @@ enum StyleTotalPatch {
       }
       function bumpPx(v) {
         var n = parseInt(v, 10);
-        if (n !== n) return v;
+        if (n !== n) n = 0;
         return (n + 200) + 'px';
       }
       function bumpStyle(st, el) {
@@ -215,28 +256,42 @@ enum StyleTotalPatch {
         } catch (e) { return st; }
       }
       function hookGCS() {
-        if (window.__mt741gcs) return;
         var gcs = window.getComputedStyle;
         if (typeof gcs !== 'function') return;
+        if (gcs.__mt741) {
+          window.__mt741gcs = true;
+          return;
+        }
         var wrapped = function (el, pseudo) {
           try { if (el) void el.offsetWidth; } catch (e) {}
           var st = gcs.call(window, el, pseudo);
           return bumpStyle(st, el);
         };
+        wrapped.__mt741 = true;
         disguise(wrapped, gcs);
         try {
-          window.getComputedStyle = wrapped;
-          window.__mt741gcs = true;
-          return;
+          var proto = Window.prototype;
+          var desc = Object.getOwnPropertyDescriptor(proto, 'getComputedStyle')
+            || Object.getOwnPropertyDescriptor(window, 'getComputedStyle');
+          if (desc && desc.configurable !== false) {
+            if (desc.get) {
+              nativeDef.call(Object, proto, 'getComputedStyle', {
+                configurable: true,
+                enumerable: !!desc.enumerable,
+                get: function () { return wrapped; }
+              });
+            } else {
+              nativeDef.call(Object, proto, 'getComputedStyle', {
+                configurable: true,
+                enumerable: !!desc.enumerable,
+                writable: true,
+                value: wrapped
+              });
+            }
+            window.__mt741gcs = true;
+          }
         } catch (e) {}
-        try {
-          Object.defineProperty(window, 'getComputedStyle', {
-            configurable: true,
-            writable: true,
-            value: wrapped
-          });
-          window.__mt741gcs = true;
-        } catch (e2) {}
+        try { window.getComputedStyle = wrapped; window.__mt741gcs = true; } catch (e2) {}
       }
       function hookFetch() {
         if (window.__mt741styleFetch) return;
@@ -373,13 +428,23 @@ enum StyleTotalPatch {
           }
         } catch (e) {}
         window.__mt741stylePatched = true;
+        try {
+          if (!window.__mt741styleRearm) {
+            window.__mt741styleRearm = setInterval(function () {
+              try { hookDefineProperty(); } catch (e) {}
+              try { hookGCS(); } catch (e) {}
+              try { hookStyleTotalAssign(); } catch (e) {}
+            }, 400);
+          }
+        } catch (e) {}
         return {
           patched: true,
           wrapped: window.__mt741styleWrapped || 0,
           from: window.__mt741styleFrom || 0,
           hit: window.__mt741styleHit || 0,
           bump: window.__mt741styleBump || 0,
-          gcs: !!window.__mt741gcs
+          gcs: !!window.__mt741gcs,
+          esMod: window.__mt741esMod || 0
         };
       }
       window.__mt741liftStyle = lift;

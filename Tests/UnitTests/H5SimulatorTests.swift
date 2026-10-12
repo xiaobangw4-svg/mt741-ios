@@ -48,6 +48,48 @@ final class H5SimulatorTests: XCTestCase {
         XCTAssertTrue(text.contains("\"shim\":true") || text.contains("\"dummy\":true"), "dummy/shim 应生效：\(text)")
     }
 
+    func testEsModuleStyleTotalIsLiftedInWK() async throws {
+        let content = WKUserContentController()
+        content.addUserScript(WKUserScript(
+            source: StyleTotalPatch.javaScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true,
+            in: .page
+        ))
+        let config = WKWebViewConfiguration()
+        config.userContentController = content
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        let webView = makeVisibleWebView(config: config)
+        let page = """
+        <html><head></head><body>
+        <script>
+        (function(){
+          var e = {};
+          Object.defineProperty(e, '__esModule', { value: true });
+          e.StyleTotal = function(t){ return 6550; };
+          window.__liftOut = e.StyleTotal('0a140a64006401ff');
+          window.__liftWrapped = window.__mt741styleWrapped || 0;
+          window.__liftEs = window.__mt741esMod || 0;
+        })();
+        </script>
+        </body></html>
+        """
+        webView.loadHTMLString(page, baseURL: URL(string: "https://h5.moutai519.com.cn/"))
+        try await waitUntil(webView, seconds: 8) { wv in
+            let v = try? await wv.evaluateJavaScript("window.__liftOut")
+            if let n = v as? Int, n > 0 { return String(n) }
+            if let n = v as? Double, n > 0 { return String(Int(n)) }
+            if let n = v as? NSNumber, n.intValue > 0 { return n.stringValue }
+            return nil
+        }
+        let raw = try await webView.evaluateJavaScript(
+            "JSON.stringify({out:window.__liftOut,wrapped:window.__liftWrapped,es:window.__liftEs})"
+        )
+        let text = (raw as? String) ?? String(describing: raw)
+        print("H5SIM lift dump \(text)")
+        XCTAssertTrue(text.contains("19130"), "webpack e.StyleTotal 应抬成五位，实际：\(text)")
+    }
+
     func testOfficialH5PageProducesCWBOnSimulator() async throws {
         let store = CWBStore()
         let runtime = H5Runtime()
