@@ -10,22 +10,21 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { geo in
             VStack(spacing: 0) {
-                ZStack(alignment: .topLeading) {
-                    WebViewContainer(
-                        runtime: h5Runtime,
-                        session: sessionStore.session,
-                        cwbStore: cwbStore,
-                        product: productStore.selected
-                    )
-                    Text(stageStatus)
-                        .font(.caption2.monospaced())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Color.black.opacity(0.55))
-                        .padding(8)
-                        .accessibilityIdentifier("h5.stageStatus")
-                }
+                Text(stageStatus)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.black.opacity(0.88))
+                    .accessibilityIdentifier("h5.stageStatus")
+
+                WebViewContainer(
+                    runtime: h5Runtime,
+                    session: sessionStore.session,
+                    cwbStore: cwbStore,
+                    product: productStore.selected
+                )
                 .frame(height: stageHeight(geo.size.height))
                 .frame(maxWidth: .infinity)
                 .accessibilityIdentifier("h5.container")
@@ -57,7 +56,7 @@ struct ContentView: View {
     }
 
     private func stageHeight(_ total: CGFloat) -> CGFloat {
-        max(360, total - 280)
+        max(280, min(total * 0.45, total - 360))
     }
 
     private var stageStatus: String {

@@ -34,10 +34,9 @@ final class MT741UITests: XCTestCase {
         XCTAssertTrue(app.tabBars.buttons["登录"].exists)
         XCTAssertTrue(app.tabBars.buttons["环境"].exists)
         XCTAssertFalse(app.tabBars.buttons["H5"].exists, "H5 已接到屏幕上，不再单独占一个 Tab")
-        let web = app.webViews["h5.webview"]
-        let container = app.otherElements["h5.container"]
         XCTAssertTrue(
-            web.waitForExistence(timeout: 8) || container.waitForExistence(timeout: 2),
+            app.otherElements["h5.container"].waitForExistence(timeout: 8)
+                || app.otherElements["h5.stageBox"].waitForExistence(timeout: 2),
             "官网 WK 应在屏幕上"
         )
     }

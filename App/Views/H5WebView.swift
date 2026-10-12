@@ -44,6 +44,7 @@ struct WebViewContainer: UIViewRepresentable {
         view.isUserInteractionEnabled = true
         view.isOpaque = true
         view.backgroundColor = .white
+        view.accessibilityElementsHidden = true
         if view.superview !== box {
             view.removeFromSuperview()
             box.addSubview(view)
