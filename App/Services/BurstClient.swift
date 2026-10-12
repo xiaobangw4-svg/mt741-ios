@@ -86,13 +86,13 @@ enum BurstClient {
         let n = clampN(request.n)
         let c = clampC(request.concurrency)
         let interval = clampInterval(request.intervalMs)
-        let token = session.cookie.isEmpty ? session.token : session.cookie
+        let token = session.wapToken
         let product = request.product
         let plain = RushPlain(
             amount: request.amount.isEmpty ? product.defaultAmount : request.amount,
             itemCode: product.sku,
             itemPriorityActId: request.actId,
-            deviceId: session.deviceId,
+            deviceId: session.authDeviceId,
             ydLogId: request.ydLogId,
             ydToken: request.ydToken,
             userId: session.userId,
@@ -187,7 +187,7 @@ enum BurstClient {
         let mtK = String(Int64(Date().timeIntervalSince1970 * 1000))
         let mtV = AuthDigest.mtV(
             timestamp: mtK,
-            deviceId: session.deviceId,
+            deviceId: session.authDeviceId,
             version: AuthDigest.appVersion,
             suffix: AuthDigest.randomSuffix()
         )
@@ -197,7 +197,7 @@ enum BurstClient {
         request.timeoutInterval = 8
         request.httpShouldHandleCookies = false
         for (key, value) in HeaderBuilder.headers(
-            deviceId: session.deviceId,
+            deviceId: session.authDeviceId,
             token: token,
             mtK: mtK,
             mtV: mtV,

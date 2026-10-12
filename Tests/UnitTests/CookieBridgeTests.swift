@@ -25,6 +25,20 @@ final class CookieBridgeTests: XCTestCase {
         XCTAssertEqual(Set(cookies.map(\.value)), ["DEV-2"])
     }
 
+    func testCookiesUseJWTDeviceIdWhenSessionFieldDrifted() {
+        let jwt = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJtdCIsImV4cCI6MTc5MzQ1MTE5NCwidXNlcklkIjoxMDY1NTAzNTAzLCJkZXZpY2VJZCI6IjAzRjMxQzdBLUVFNDctNDI4Ny1CNzFGLUE3ODdDNjlBMkExQiIsImlhdCI6MTc5MDg1OTE5NH0.h6_StStFuJ8V-0F5aqXeCSG8AYG5emqpa0sTqHo3uU0"
+        let cookies = CookieBridge.cookies(from: Session(
+            deviceId: "WRONG",
+            userId: "1",
+            token: "app",
+            cookie: jwt
+        ))
+        XCTAssertTrue(cookies.contains {
+            $0.name == "MT-Device-ID-Wap" && $0.value == "03F31C7A-EE47-4287-B71F-A787C69A2A1B"
+        })
+        XCTAssertTrue(cookies.contains { $0.name == "MT-Token-Wap" && $0.value == jwt })
+    }
+
     func testUserAgentLooksLikeOfficialAppWebView() {
         let ua = CookieBridge.userAgent(deviceId: "DEV-1")
         XCTAssertTrue(ua.contains("moutaiapp/\(AuthDigest.appVersion)"))

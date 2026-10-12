@@ -293,11 +293,12 @@ enum OrderClient {
     }
 
     private static func appPost(url: URL, body: [String: Any], session: Session, dU: String = "") async throws -> [String: Any] {
-        let token = session.cookie.isEmpty ? session.token : session.cookie
+        let token = session.wapToken
+        let deviceId = session.authDeviceId
         let mtK = String(Int64(Date().timeIntervalSince1970 * 1000))
         let mtV = AuthDigest.mtV(
             timestamp: mtK,
-            deviceId: session.deviceId,
+            deviceId: deviceId,
             version: AuthDigest.appVersion,
             suffix: AuthDigest.randomSuffix()
         )
@@ -308,7 +309,7 @@ enum OrderClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.setValue("application/json; charset=UTF-8", forHTTPHeaderField: "Content-Type")
         request.setValue(AuthDigest.nativeUA, forHTTPHeaderField: "User-Agent")
-        request.setValue(session.deviceId, forHTTPHeaderField: "MT-Device-ID")
+        request.setValue(deviceId, forHTTPHeaderField: "MT-Device-ID")
         request.setValue(AuthDigest.appVersion, forHTTPHeaderField: "MT-APP-Version")
         request.setValue(AuthDigest.bundleId, forHTTPHeaderField: "MT-Bundle-ID")
         request.setValue("WIFI", forHTTPHeaderField: "MT-Network-Type")
@@ -319,7 +320,7 @@ enum OrderClient {
         if !session.token.isEmpty {
             request.setValue(session.token, forHTTPHeaderField: "MT-Token")
         }
-        let cookie = HeaderBuilder.cookie(deviceId: session.deviceId, token: token, dU: dU)
+        let cookie = HeaderBuilder.cookie(deviceId: deviceId, token: token, dU: dU)
         if !cookie.isEmpty {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }

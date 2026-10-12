@@ -28,11 +28,12 @@ enum YidunClient {
     }
 
     private static func postJSON(url: URL, body: [String: Any], session: Session, gdxid: String = "") async throws -> [String: Any] {
-        let token = session.cookie.isEmpty ? session.token : session.cookie
+        let token = session.wapToken
+        let deviceId = session.authDeviceId
         let mtK = String(Int64(Date().timeIntervalSince1970 * 1000))
         let mtV = AuthDigest.mtV(
             timestamp: mtK,
-            deviceId: session.deviceId,
+            deviceId: deviceId,
             version: AuthDigest.appVersion,
             suffix: AuthDigest.randomSuffix()
         )
@@ -42,7 +43,7 @@ enum YidunClient {
         request.httpShouldHandleCookies = false
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         for (key, value) in HeaderBuilder.headers(
-            deviceId: session.deviceId,
+            deviceId: deviceId,
             token: token,
             mtK: mtK,
             mtV: mtV,

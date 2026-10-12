@@ -32,4 +32,14 @@ final class AuthDigestTests: XCTestCase {
         XCTAssertEqual(AuthDigest.validateVCode("  "), "请填写验证码")
         XCTAssertNil(AuthDigest.validateVCode("123456"))
     }
+
+    func testJWTDeviceIdFromOfficialWapToken() {
+        let jwt = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJtdCIsImV4cCI6MTc5MzQ1MTE5NCwidXNlcklkIjoxMDY1NTAzNTAzLCJkZXZpY2VJZCI6IjAzRjMxQzdBLUVFNDctNDI4Ny1CNzFGLUE3ODdDNjlBMkExQiIsImlhdCI6MTc5MDg1OTE5NH0.h6_StStFuJ8V-0F5aqXeCSG8AYG5emqpa0sTqHo3uU0"
+        XCTAssertEqual(
+            AuthDigest.jwtDeviceId(jwt),
+            "03F31C7A-EE47-4287-B71F-A787C69A2A1B"
+        )
+        XCTAssertEqual(AuthDigest.jwtDeviceId("not-a-jwt"), "")
+        XCTAssertEqual(AuthDigest.jwtDeviceId(""), "")
+    }
 }

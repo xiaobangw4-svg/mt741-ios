@@ -13,6 +13,20 @@ struct Session: Equatable, Codable {
         !userId.isEmpty && (!token.isEmpty || !cookie.isEmpty)
     }
 
+    /// H5 `MT-Token-Wap` is the cookie JWT; APP `token` is a different ianus key.
+    var wapToken: String {
+        cookie.isEmpty ? token : cookie
+    }
+
+    /// ianus 4011 compares this UUID with `MT-Device-ID` / `MT-Device-ID-Wap`.
+    var authDeviceId: String {
+        let fromWap = AuthDigest.jwtDeviceId(wapToken)
+        if !fromWap.isEmpty { return fromWap }
+        let fromApp = AuthDigest.jwtDeviceId(token)
+        if !fromApp.isEmpty { return fromApp }
+        return deviceId
+    }
+
     var statusText: String {
         if isLoggedIn {
             return "已登录  userId=\(userId)"
@@ -46,17 +60,28 @@ final class SessionStore: ObservableObject {
         session.userName = result.userName
         session.token = result.token
         session.cookie = result.cookie
+        alignDeviceFromToken()
         CookieBridge.apply(session)
     }
 
     func logout() {
-        let device = session.deviceId
+        let device = session.authDeviceId.isEmpty ? session.deviceId : session.authDeviceId
         session = Session(deviceId: device)
         CookieBridge.apply(session)
     }
 
+    /// Logged-in JWT already binds a UUID. Rotating here is 4011 on the next rush.
     func rotateDevice() {
+        guard !session.isLoggedIn else { return }
         session.deviceId = SessionStore.newDeviceId()
+        CookieBridge.apply(session)
+    }
+
+    func alignDeviceFromToken() {
+        let id = session.authDeviceId
+        if !id.isEmpty, id != session.deviceId {
+            session.deviceId = id
+        }
     }
 
     static func newDeviceId() -> String {

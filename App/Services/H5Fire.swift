@@ -5,7 +5,30 @@ enum H5Fire {
     (function () {
       if (window.__mt741fireReady) return;
       window.__mt741fireReady = true;
-      function applyHeaders(xhr, extraHeaders, kv) {
+      function pinWap(deviceId, token) {
+        if (deviceId) {
+          try { document.cookie = 'MT-Device-ID-Wap=' + String(deviceId) + '; path=/'; } catch (e) {}
+        }
+        if (token) {
+          try { document.cookie = 'MT-Token-Wap=' + String(token) + '; path=/'; } catch (e) {}
+        }
+      }
+      function lockDevice(xhr, deviceId) {
+        if (!deviceId) return;
+        var origSet = xhr.setRequestHeader.bind(xhr);
+        xhr.setRequestHeader = function (k, v) {
+          if (String(k).toLowerCase() === 'mt-device-id') {
+            return origSet('MT-Device-ID', String(deviceId));
+          }
+          return origSet(k, v);
+        };
+        var origSend = xhr.send.bind(xhr);
+        xhr.send = function (b) {
+          try { origSet('MT-Device-ID', String(deviceId)); } catch (e) {}
+          return origSend(b);
+        };
+      }
+      function applyHeaders(xhr, extraHeaders, kv, deviceId) {
         if (extraHeaders) {
           for (var k in extraHeaders) {
             if (!Object.prototype.hasOwnProperty.call(extraHeaders, k)) continue;
@@ -20,21 +43,26 @@ enum H5Fire {
           if (kv.k) { try { xhr.setRequestHeader('MT-K', String(kv.k)); } catch (e) {} }
           if (kv.v) { try { xhr.setRequestHeader('MT-V', String(kv.v)); } catch (e) {} }
         }
+        if (deviceId) {
+          try { xhr.setRequestHeader('MT-Device-ID', String(deviceId)); } catch (e) {}
+        }
       }
-      function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv) {
+      function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv, deviceId, token) {
         return new Promise(function (resolve) {
           var t0 = Date.now();
           try {
+            pinWap(deviceId, token);
             var xhr = new XMLHttpRequest();
             xhr.open(method, url, true);
             xhr.withCredentials = true;
             xhr.timeout = timeoutMs || 8000;
+            lockDevice(xhr, deviceId);
             xhr.setRequestHeader('Accept', 'application/json, text/javascript, */*; q=0.01');
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             if (method !== 'GET') {
               xhr.setRequestHeader('Content-Type', 'application/json');
             }
-            applyHeaders(xhr, extraHeaders, kv);
+            applyHeaders(xhr, extraHeaders, kv, deviceId);
             xhr.onload = function () {
               resolve({
                 ok: xhr.status >= 200 && xhr.status < 300,
@@ -58,7 +86,10 @@ enum H5Fire {
       }
       window.__mt741request = function (payload) {
         payload = payload || {};
-        return xhrOnce(payload.method || 'GET', payload.url, payload.body || null, payload.timeoutMs || 12000, payload.headers, payload.kv);
+        var headers = payload.headers || {};
+        var deviceId = payload.deviceId || headers['MT-Device-ID'] || headers['mt-device-id'] || '';
+        var token = payload.wapToken || '';
+        return xhrOnce(payload.method || 'GET', payload.url, payload.body || null, payload.timeoutMs || 12000, headers, payload.kv, deviceId, token);
       };
       window.__mt741fire = function (payload) {
         payload = payload || {};
@@ -69,6 +100,9 @@ enum H5Fire {
         var body = payload.body;
         var headers = payload.headers || {};
         var kvList = payload.kv || [];
+        var deviceId = payload.deviceId || headers['MT-Device-ID'] || headers['mt-device-id'] || '';
+        var token = payload.wapToken || '';
+        pinWap(deviceId, token);
         var shots = new Array(n);
         return new Promise(function (resolve) {
           var started = 0;
@@ -80,7 +114,7 @@ enum H5Fire {
                 started += 1;
                 inflight += 1;
                 setTimeout(function () {
-                  xhrOnce('POST', url, body, 8000, headers, kvList[i] || {}).then(function (one) {
+                  xhrOnce('POST', url, body, 8000, headers, kvList[i] || {}, deviceId, token).then(function (one) {
                     shots[i] = {
                       idx: i,
                       ok: one.ok,

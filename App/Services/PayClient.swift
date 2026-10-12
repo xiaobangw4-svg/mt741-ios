@@ -119,11 +119,12 @@ enum PayClient {
     }
 
     private static func postJSON(url: URL, body: [String: Any], session: Session, appToken: Bool) async throws -> [String: Any] {
-        let token = session.cookie.isEmpty ? session.token : session.cookie
+        let token = session.wapToken
+        let deviceId = session.authDeviceId
         let mtK = String(Int64(Date().timeIntervalSince1970 * 1000))
         let mtV = AuthDigest.mtV(
             timestamp: mtK,
-            deviceId: session.deviceId,
+            deviceId: deviceId,
             version: AuthDigest.appVersion,
             suffix: AuthDigest.randomSuffix()
         )
@@ -134,7 +135,7 @@ enum PayClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(AuthDigest.nativeUA, forHTTPHeaderField: "User-Agent")
-        request.setValue(session.deviceId, forHTTPHeaderField: "MT-Device-ID")
+        request.setValue(deviceId, forHTTPHeaderField: "MT-Device-ID")
         request.setValue(AuthDigest.appVersion, forHTTPHeaderField: "MT-APP-Version")
         request.setValue(mtK, forHTTPHeaderField: "MT-K")
         request.setValue(mtV, forHTTPHeaderField: "MT-V")
@@ -142,7 +143,7 @@ enum PayClient {
             request.setValue(session.token, forHTTPHeaderField: "MT-Token")
         }
         if !token.isEmpty {
-            request.setValue("MT-Token-Wap=\(token); MT-Device-ID-Wap=\(session.deviceId)", forHTTPHeaderField: "Cookie")
+            request.setValue("MT-Token-Wap=\(token); MT-Device-ID-Wap=\(deviceId)", forHTTPHeaderField: "Cookie")
         }
         let (data, resp) = try await URLSession.shared.data(for: request)
         if let http = resp as? HTTPURLResponse, !(200...299).contains(http.statusCode) {

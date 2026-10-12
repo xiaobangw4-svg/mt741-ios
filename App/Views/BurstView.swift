@@ -210,7 +210,7 @@ struct BurstView: View {
             amount: amount.isEmpty ? product.defaultAmount : amount,
             itemCode: product.sku,
             itemPriorityActId: actId,
-            deviceId: sessionStore.session.deviceId,
+            deviceId: sessionStore.session.authDeviceId,
             userId: sessionStore.session.userId
         )
         let body = RushCrypto.rushBody(plain: plain)
@@ -307,6 +307,7 @@ struct BurstView: View {
         busy = true
         defer { busy = false }
         log = "1/4 加载官方 \(product.volume) 商品页…"
+        sessionStore.alignDeviceFromToken()
         h5Runtime.bindIfNeeded(
             session: sessionStore.session,
             cwbStore: cwbStore,
@@ -369,6 +370,7 @@ struct BurstView: View {
             product: product
         )
         log = "开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku)"
+        sessionStore.alignDeviceFromToken()
         let stats: BurstStats
         if dest == .h5Page {
             stats = await h5Runtime.fire(request: req, session: sessionStore.session)
@@ -449,8 +451,8 @@ struct BurstView: View {
             captchaId: product.captchaId,
             pageUrl: product.h5URL.absoluteString,
             priorityRecordId: hit.priorityRecordId,
-            deviceId: sessionStore.session.deviceId,
-            userAgent: CookieBridge.userAgent(deviceId: sessionStore.session.deviceId),
+            deviceId: sessionStore.session.authDeviceId,
+            userAgent: CookieBridge.userAgent(deviceId: sessionStore.session.authDeviceId),
             gdxid: gdx
         )
         if !solved.ok {

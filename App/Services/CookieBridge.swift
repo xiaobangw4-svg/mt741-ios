@@ -21,11 +21,13 @@ enum CookieBridge {
     static var h5UA: String { userAgent(deviceId: "MT741") }
 
     static func cookies(from session: Session) -> [HTTPCookie] {
-        let token = session.cookie.isEmpty ? session.token : session.cookie
-        var specs: [(String, String, String)] = [
-            ("MT-Device-ID-Wap", session.deviceId, h5Host),
-            ("MT-Device-ID-Wap", session.deviceId, appHost),
-        ]
+        let token = session.wapToken
+        let deviceId = session.authDeviceId
+        var specs: [(String, String, String)] = []
+        if !deviceId.isEmpty {
+            specs.append(("MT-Device-ID-Wap", deviceId, h5Host))
+            specs.append(("MT-Device-ID-Wap", deviceId, appHost))
+        }
         if !token.isEmpty {
             specs.append(("MT-Token-Wap", token, h5Host))
             specs.append(("MT-Token-Wap", token, appHost))
@@ -58,6 +60,12 @@ enum CookieBridge {
                 store.setCookie(cookie) { group.leave() }
             }
             group.notify(queue: .main) { completion?() }
+        }
+    }
+
+    static func applyAsync(_ session: Session) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            apply(session) { cont.resume() }
         }
     }
 }

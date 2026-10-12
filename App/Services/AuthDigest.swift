@@ -68,4 +68,30 @@ enum AuthDigest {
         }
         return nil
     }
+
+    /// ianus JWT payload: `{"iss":"mt","exp":…,"userId":…,"deviceId":"<UUID>","iat":…}`.
+    static func jwtPayload(_ token: String) -> [String: Any] {
+        let parts = token.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count >= 2 else { return [:] }
+        var s = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let pad = (4 - s.count % 4) % 4
+        if pad > 0 {
+            s += String(repeating: "=", count: pad)
+        }
+        guard let data = Data(base64Encoded: s),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return [:] }
+        return obj
+    }
+
+    static func jwtDeviceId(_ token: String) -> String {
+        let raw = jwtPayload(token)["deviceId"]
+        if let s = raw as? String {
+            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !t.isEmpty { return t }
+        }
+        return ""
+    }
 }

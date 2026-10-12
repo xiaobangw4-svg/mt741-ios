@@ -86,10 +86,10 @@ final class H5Runtime: NSObject, ObservableObject {
         keepInWindow()
         let shouldLoad = forceLoad || session.isLoggedIn
         guard shouldLoad else { return }
-        let next = session.cookie + "|" + session.token + "|" + session.deviceId + "|" + product.sku
+        let next = session.cookie + "|" + session.token + "|" + session.authDeviceId + "|" + product.sku
         if fingerprint == next, webView.url != nil, !forceLoad { return }
         fingerprint = next
-        webView.customUserAgent = CookieBridge.userAgent(deviceId: session.deviceId)
+        webView.customUserAgent = CookieBridge.userAgent(deviceId: session.authDeviceId)
         Task { [weak self] in
             guard let self else { return }
             if !self.didClearSdkBlock {
@@ -121,12 +121,14 @@ final class H5Runtime: NSObject, ObservableObject {
             )
         }
         _ = await waitForCWB(seconds: 8)
+        await CookieBridge.applyAsync(session)
         let product = request.product
+        let deviceId = session.authDeviceId
         let plain = RushPlain(
             amount: request.amount.isEmpty ? product.defaultAmount : request.amount,
             itemCode: product.sku,
             itemPriorityActId: request.actId,
-            deviceId: session.deviceId,
+            deviceId: deviceId,
             ydLogId: request.ydLogId,
             ydToken: request.ydToken,
             userId: session.userId,
@@ -140,8 +142,10 @@ final class H5Runtime: NSObject, ObservableObject {
             "n": n,
             "concurrency": BurstClient.clampC(request.concurrency),
             "intervalMs": BurstClient.clampInterval(request.intervalMs),
-            "headers": H5Fire.pageHeaders(deviceId: session.deviceId, product: product),
-            "kv": H5Fire.kvPairs(count: n, deviceId: session.deviceId),
+            "deviceId": deviceId,
+            "wapToken": session.wapToken,
+            "headers": H5Fire.pageHeaders(deviceId: deviceId, product: product),
+            "kv": H5Fire.kvPairs(count: n, deviceId: deviceId),
         ]
         let t0 = Date()
         do {
@@ -361,7 +365,10 @@ final class H5Runtime: NSObject, ObservableObject {
             payload["body"] = body
         }
         if let session {
-            payload["headers"] = H5Fire.pageHeaders(deviceId: session.deviceId, product: product)
+            await CookieBridge.applyAsync(session)
+            payload["headers"] = H5Fire.pageHeaders(deviceId: session.authDeviceId, product: product)
+            payload["deviceId"] = session.authDeviceId
+            payload["wapToken"] = session.wapToken
         }
         let result = try await callJS(
             "return await window.__mt741request(payload);",

@@ -53,7 +53,7 @@ enum HeaderBuilder {
             "Content-Web-Bb": cwb,
             "Cookie": cookie(deviceId: deviceId, token: token, dU: dU, gdxid: gdxid),
             "X-Requested-With": "XMLHttpRequest",
-            "User-Agent": h5UA,
+            "User-Agent": CookieBridge.userAgent(deviceId: deviceId),
             "Referer": referer,
             "Origin": origin,
             "MT-K": mtK,

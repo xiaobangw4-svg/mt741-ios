@@ -29,5 +29,62 @@ final class SessionTests: XCTestCase {
         XCTAssertFalse(session.isLoggedIn)
         XCTAssertEqual(Session().statusText, "未登录")
     }
+
+    func testAuthDeviceIdPrefersJWTOverSessionField() {
+        let jwt = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJtdCIsImV4cCI6MTc5MzQ1MTE5NCwidXNlcklkIjoxMDY1NTAzNTAzLCJkZXZpY2VJZCI6IjAzRjMxQzdBLUVFNDctNDI4Ny1CNzFGLUE3ODdDNjlBMkExQiIsImlhdCI6MTc5MDg1OTE5NH0.h6_StStFuJ8V-0F5aqXeCSG8AYG5emqpa0sTqHo3uU0"
+        let session = Session(
+            deviceId: "WRONG-UUID",
+            userId: "1",
+            token: "app-token",
+            cookie: jwt
+        )
+        XCTAssertEqual(session.wapToken, jwt)
+        XCTAssertEqual(session.authDeviceId, "03F31C7A-EE47-4287-B71F-A787C69A2A1B")
+    }
+
+    func testRotateDeviceNoOpWhenLoggedIn() {
+        let key = SessionStore.defaultsKey
+        let prev = UserDefaults.standard.data(forKey: key)
+        defer {
+            if let prev {
+                UserDefaults.standard.set(prev, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        let store = SessionStore(session: Session(
+            deviceId: "DEV-A",
+            userId: "1",
+            token: "t",
+            cookie: "c"
+        ))
+        store.rotateDevice()
+        XCTAssertEqual(store.session.deviceId, "DEV-A")
+        store.logout()
+        let afterLogout = store.session.deviceId
+        store.rotateDevice()
+        XCTAssertNotEqual(store.session.deviceId, afterLogout)
+    }
+
+    func testAlignDeviceFromTokenRewritesStaleSessionField() {
+        let key = SessionStore.defaultsKey
+        let prev = UserDefaults.standard.data(forKey: key)
+        defer {
+            if let prev {
+                UserDefaults.standard.set(prev, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        let jwt = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJtdCIsImV4cCI6MTc5MzQ1MTE5NCwidXNlcklkIjoxMDY1NTAzNTAzLCJkZXZpY2VJZCI6IjAzRjMxQzdBLUVFNDctNDI4Ny1CNzFGLUE3ODdDNjlBMkExQiIsImlhdCI6MTc5MDg1OTE5NH0.h6_StStFuJ8V-0F5aqXeCSG8AYG5emqpa0sTqHo3uU0"
+        let store = SessionStore(session: Session(
+            deviceId: "STALE",
+            userId: "1",
+            token: "t",
+            cookie: jwt
+        ))
+        store.alignDeviceFromToken()
+        XCTAssertEqual(store.session.deviceId, "03F31C7A-EE47-4287-B71F-A787C69A2A1B")
+    }
 }
 

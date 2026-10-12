@@ -82,6 +82,7 @@ struct AuthClient {
             let token = (data["token"] as? String) ?? ""
             let cookie = (data["cookie"] as? String) ?? token
             let userId = String(describing: data["userId"] ?? "")
+            let jwtDid = AuthDigest.jwtDeviceId(cookie.isEmpty ? token : cookie)
             return LoginResult(
                 ok: true,
                 message: "登录成功",
@@ -90,7 +91,7 @@ struct AuthClient {
                 mobile: (data["mobile"] as? String) ?? mobile,
                 token: token,
                 cookie: cookie,
-                deviceId: deviceId
+                deviceId: jwtDid.isEmpty ? deviceId : jwtDid
             )
         } catch {
             return LoginResult(ok: false, message: Self.describe(error), mobile: mobile, deviceId: deviceId)

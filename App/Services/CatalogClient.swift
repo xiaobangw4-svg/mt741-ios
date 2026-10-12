@@ -99,11 +99,12 @@ enum CatalogClient {
     }
 
     private static func h5JSON(url: URL, method: String, body: Data?, session: Session, referer: String = HeaderBuilder.referer) async throws -> [String: Any] {
-        let token = session.cookie.isEmpty ? session.token : session.cookie
+        let token = session.wapToken
+        let deviceId = session.authDeviceId
         let mtK = String(Int64(Date().timeIntervalSince1970 * 1000))
         let mtV = AuthDigest.mtV(
             timestamp: mtK,
-            deviceId: session.deviceId,
+            deviceId: deviceId,
             version: AuthDigest.appVersion,
             suffix: AuthDigest.randomSuffix()
         )
@@ -113,7 +114,7 @@ enum CatalogClient {
         request.httpShouldHandleCookies = false
         request.httpBody = body
         for (key, value) in HeaderBuilder.headers(
-            deviceId: session.deviceId,
+            deviceId: deviceId,
             token: token,
             mtK: mtK,
             mtV: mtV,

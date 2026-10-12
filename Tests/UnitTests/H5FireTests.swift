@@ -11,6 +11,10 @@ final class H5FireTests: XCTestCase {
         XCTAssertTrue(H5Fire.javaScript.contains("content-web-bb"))
         XCTAssertTrue(H5Fire.javaScript.contains("sdk-ver-bb"))
         XCTAssertTrue(H5Fire.javaScript.contains("rushPurchase") || H5Fire.javaScript.contains("xhrOnce"))
+        XCTAssertTrue(H5Fire.javaScript.contains("MT-Device-ID-Wap"))
+        XCTAssertTrue(H5Fire.javaScript.contains("payload.deviceId"))
+        XCTAssertTrue(H5Fire.javaScript.contains("wapToken"))
+        XCTAssertTrue(H5Fire.javaScript.contains("lockDevice"))
     }
 
     func testPageHeadersSkipCWBAndIncludeDevice() {

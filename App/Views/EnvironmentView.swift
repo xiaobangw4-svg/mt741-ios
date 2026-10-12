@@ -10,7 +10,7 @@ struct EnvironmentView: View {
                 Section("真机") {
                     row("网络", "本机蜂窝/Wi-Fi，不是 GitHub 模拟器")
                         .accessibilityIdentifier("env.network")
-                    row("设备 ID", sessionStore.session.deviceId)
+                    row("设备 ID", sessionStore.session.authDeviceId.isEmpty ? sessionStore.session.deviceId : sessionStore.session.authDeviceId)
                     row("登录", sessionStore.session.statusText)
                 }
                 Section("已接入") {

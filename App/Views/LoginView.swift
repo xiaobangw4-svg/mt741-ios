@@ -26,6 +26,7 @@ struct LoginView: View {
                         .accessibilityIdentifier("login.vcode")
                     TextField("设备 ID", text: $sessionStore.session.deviceId)
                         .font(.footnote.monospaced())
+                        .disabled(sessionStore.session.isLoggedIn)
                         .accessibilityIdentifier("login.device")
                 }
 
@@ -37,7 +38,7 @@ struct LoginView: View {
                         .disabled(busy)
                         .accessibilityIdentifier("login.submit")
                     Button("新设备") { sessionStore.rotateDevice() }
-                        .disabled(busy)
+                        .disabled(busy || sessionStore.session.isLoggedIn)
                         .accessibilityIdentifier("login.newDevice")
                     Button("退出登录", role: .destructive) { logout() }
                         .disabled(busy)
