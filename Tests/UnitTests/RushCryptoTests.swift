@@ -12,12 +12,12 @@ final class RushCryptoTests: XCTestCase {
         let marshaled = RushCrypto.marshal(plain)
         XCTAssertEqual(
             marshaled,
-            #"{"amount":"1","itemCode":"741","itemPriorityActId":"103783","userInfoBaseContext":{"addressLat":"","addressLng":"","appUserAgent":"iOS;26.2.1;Apple;iPhone 13","deviceId":"ABCDEF-DEVICE-ID","mtr":"clips_OlU6TmFRag5rCXwbNAQ/Tz1SKlN8THcecBp/HGhHdg=="},"ydLogId":"","ydToken":"","userId":"9"}"#
+            #"{"amount":"1","itemCode":"741","itemPriorityActId":"103783","userInfoBaseContext":{"addressLat":"27.414705","addressLng":"105.380223","appUserAgent":"iOS;26.2.1;Apple;iPhone 13","deviceId":"ABCDEF-DEVICE-ID","mtr":"clips_OlU6TmFRag5rCXwbNAQ/Tz1SKlN8THcecBp/HGhHdg=="},"ydLogId":"","ydToken":"","userId":"9"}"#
         )
         let body = RushCrypto.rushBody(plain: plain)
         XCTAssertEqual(
             body,
-            #"{"actParam":"5H3uMgV9PvEUwjTyYpUkSY65VylSG7gxqRKuAGMMtEMT6vsFsuspvfsWxnYNM7Y802k4eEaxjbX6mja5whZn4TiXY+zr8Zcqkjk7wjntcLAj3mNR+WVJ60e5pfaHsHclJDNrxIWmyZM9rlVmhzZPsWJ2Cky3kgBH/qRD4rbmdvlv0i3WLl/PQwcDj/H27KVzT6zXT1JdJIlUyGIH5oFk6dV5U1d9QSMQ2O0Vz2LVsSz7qgLenbl+xsDlXtF19UMoe8Puj0SxCW/bZ4+4JOhEMecdUsbwjjj64AVLfdkG7x1XP9n3A2R8sGGepFQshycdE+E2jpTbDDLhILRbLoikw3e5hdPzt10db0koKbM6qwyjiY/tPp3Ptycg2CdGuspnVD3o+OU4JoDck5Pi4ewhtA==","v":"0003"}"#
+            #"{"actParam":"5H3uMgV9PvEUwjTyYpUkSY65VylSG7gxqRKuAGMMtEMT6vsFsuspvfsWxnYNM7Y802k4eEaxjbX6mja5whZn4TiXY+zr8Zcqkjk7wjntcLAj3mNR+WVJ60e5pfaHsHclZzbz9ZlfHZF80S6KFuXA5EwvRIsiG8W0WVehe82BEo0JCaIzbRXnJR5sgHjN37Cr5PX1C/Q5srr8K2BroucQn7iR3Cf563fOi8kxv7G1IokGsT6Ua9oBq5QjLF6qbrx/A50ER6MbD+9fFkGHR5SMm4JIFcMHo4EUMwI1F9jp9PdlBIaxFXf/weQ4enbXGPSqk3JViLkvsPi2st+gf7ZCAyRQuKSuiLyVl9nNJoNQlflxn/F4610Mk7SohD+HrynnSQ+QLYprAJaXFwWzsS9MU9qZNaEOs0z5iJxBuj3eENQ=","v":"0003"}"#
         )
         XCTAssertFalse(body.contains("cardBindingPay"))
         XCTAssertTrue(body.contains("\"v\":\"0003\""))

@@ -84,6 +84,16 @@ final class JSBridgeTests: XCTestCase {
         XCTAssertEqual(lng, JSBridge.bijieLongitude)
         XCTAssertEqual(JSONText.string(loc?["city"]), "毕节市")
         XCTAssertEqual(JSONText.string(loc?["province"]), "贵州省")
+        XCTAssertEqual(JSBridge.bijieLatText, "27.414705")
+        XCTAssertEqual(JSBridge.bijieLngText, "105.380223")
+    }
+
+    func testGetAppInfoModelIsIPhone13() {
+        let body: [String: Any] = ["handlerName": "getAppInfo", "callbackId": "cb_app"]
+        let d = JSBridge.decide(name: JSBridge.wvjbHandlerName, body: body, session: session)
+        let info = d?.payload as? [String: Any]
+        XCTAssertEqual(JSONText.string(info?["model"]), "iPhone 13")
+        XCTAssertEqual(JSONText.string(info?["osVersion"]), "18.7")
     }
 
     func testDetectAppEnvLooksLikeOfficialIOS() {

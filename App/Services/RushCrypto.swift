@@ -8,6 +8,8 @@ struct RushPlain: Equatable {
     var deviceId: String
     var appUserAgent: String = AuthDigest.nativeUA
     var mtr: String = AuthDigest.mtR
+    var addressLat: String = JSBridge.bijieLatText
+    var addressLng: String = JSBridge.bijieLngText
     var ydLogId: String = ""
     var ydToken: String = ""
     var userId: String = ""
@@ -24,8 +26,8 @@ enum RushCrypto {
 
     static func marshal(_ plain: RushPlain) -> String {
         var ctx = "{"
-        ctx += "\"addressLat\":\"\","
-        ctx += "\"addressLng\":\"\","
+        ctx += "\"addressLat\":\(jsonString(plain.addressLat)),"
+        ctx += "\"addressLng\":\(jsonString(plain.addressLng)),"
         ctx += "\"appUserAgent\":\(jsonString(plain.appUserAgent)),"
         ctx += "\"deviceId\":\(jsonString(plain.deviceId)),"
         ctx += "\"mtr\":\(jsonString(plain.mtr))"

@@ -9,8 +9,11 @@ enum JSBridge {
 
     static let handlerNames = [wvjbHandlerName, jxbHandlerName]
 
-    static let bijieLatitude = 27.302
-    static let bijieLongitude = 105.286
+    /// Official 1.9.14 rush_capture 2026-10-12 iPhone 13 actParam / getLocation.
+    static let bijieLatitude = 27.414705
+    static let bijieLongitude = 105.380223
+    static let bijieLatText = "27.414705"
+    static let bijieLngText = "105.380223"
 
     struct Decision {
         var handler: String
@@ -111,7 +114,7 @@ enum JSBridge {
                 "appVersion": AuthDigest.appVersion,
                 "os": "iOS",
                 "osVersion": "18.7",
-                "model": "iPhone",
+                "model": "iPhone 13",
             ] as [String: Any]
         case "getdeviceinfo":
             return [
