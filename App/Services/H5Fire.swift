@@ -58,8 +58,9 @@ enum H5Fire {
           for (var k in extraHeaders) {
             if (!Object.prototype.hasOwnProperty.call(extraHeaders, k)) continue;
             var val = extraHeaders[k];
-            if (val === undefined || val === null || val === '') continue;
+            if (val === undefined || val === null) continue;
             var lk = String(k).toLowerCase();
+            if (val === '' && lk !== 'x-csrf-token') continue;
             if (lk === 'content-web-bb' || lk === 'content-hh-bb' || lk === 'cookie' || lk === 'sdk-ver-bb') continue;
             try { xhr.setRequestHeader(k, String(val)); } catch (e) {}
           }
@@ -173,6 +174,7 @@ enum H5Fire {
             "MT-Info": HeaderBuilder.mtInfo,
             "Accept-Language": "zh-CN,zh-Hans;q=0.9",
             "Referer": product.h5URL.absoluteString,
+            "x-csrf-token": "",
         ]
     }
 

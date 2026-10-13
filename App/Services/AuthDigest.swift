@@ -5,7 +5,9 @@ enum AuthDigest {
     static let vcodeSalt = "2af72f100c356273d46284f6fd1dfc08"
     static let appVersion = "1.9.14"
     static let bundleId = "com.moutai.mall"
-    static let nativeUA = "iOS;18.7;Apple;iPhone"
+    static let nativeUA = "iOS;26.2.1;Apple;iPhone 13"
+    /// Official iOS APP `MT-R` / H5 `userInfoBaseContext.mtr`. Same clips_ value on this phone across accounts.
+    static let mtR = "clips_OlU6TmFRag5rCXwbNAQ/Tz1SKlN8THcecBp/HGhHdg=="
     static let randCharset = Array("0123456789abcdefghijklmnopqrstuvwxyz")
 
     static func md5Hex(_ raw: String) -> String {

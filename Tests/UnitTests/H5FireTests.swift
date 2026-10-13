@@ -23,6 +23,7 @@ final class H5FireTests: XCTestCase {
         XCTAssertTrue(H5Fire.javaScript.contains("_bs_device_id"))
         XCTAssertTrue(H5Fire.javaScript.contains("__snaker__id"))
         XCTAssertTrue(H5Fire.javaScript.contains("YX_SUPPORT_WEBP=0"))
+        XCTAssertTrue(H5Fire.javaScript.contains("x-csrf-token"))
         XCTAssertTrue(H5Fire.javaScript.contains("expires=Thu, 01 Jan 1970"))
     }
 
@@ -33,6 +34,7 @@ final class H5FireTests: XCTestCase {
         XCTAssertNil(headers["Content-Web-Bb"])
         XCTAssertNil(headers["Cookie"])
         XCTAssertTrue(headers["Referer"]?.contains("smsp-detail") == true)
+        XCTAssertEqual(headers["x-csrf-token"], "")
         let h100 = H5Fire.pageHeaders(deviceId: "DEV-1", product: .sku10193)
         XCTAssertTrue(h100["Referer"]?.contains("xft-detail") == true)
         let h1l = H5Fire.pageHeaders(deviceId: "DEV-1", product: .sku483)

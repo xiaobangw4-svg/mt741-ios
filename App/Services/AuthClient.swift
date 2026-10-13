@@ -129,6 +129,7 @@ struct AuthClient {
         request.setValue("WIFI", forHTTPHeaderField: "MT-Network-Type")
         request.setValue("0", forHTTPHeaderField: "MT-User-Tag")
         request.setValue(AuthDigest.nativeUA, forHTTPHeaderField: "User-Agent")
+        request.setValue(AuthDigest.mtR, forHTTPHeaderField: "MT-R")
         CookieBridge.setNativeHeader(&request, bsDvid: bsDvid)
         if includeMTKV {
             let mtK = String(nowMillis())

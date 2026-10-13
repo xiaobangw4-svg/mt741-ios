@@ -135,6 +135,7 @@ enum PayClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(AuthDigest.nativeUA, forHTTPHeaderField: "User-Agent")
+        request.setValue(AuthDigest.mtR, forHTTPHeaderField: "MT-R")
         request.setValue(deviceId, forHTTPHeaderField: "MT-Device-ID")
         request.setValue(AuthDigest.appVersion, forHTTPHeaderField: "MT-APP-Version")
         request.setValue(mtK, forHTTPHeaderField: "MT-K")

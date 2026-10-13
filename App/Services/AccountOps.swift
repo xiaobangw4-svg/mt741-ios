@@ -432,6 +432,7 @@ enum AccountOps {
         request.setValue("WIFI", forHTTPHeaderField: "MT-Network-Type")
         request.setValue("0", forHTTPHeaderField: "MT-User-Tag")
         request.setValue(HeaderBuilder.mtInfo, forHTTPHeaderField: "MT-Info")
+        request.setValue(AuthDigest.mtR, forHTTPHeaderField: "MT-R")
         request.setValue(mtK, forHTTPHeaderField: "MT-K")
         request.setValue(mtV, forHTTPHeaderField: "MT-V")
         CookieBridge.setNativeHeader(&request, bsDvid: session.bsDvid)

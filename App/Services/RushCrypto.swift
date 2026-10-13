@@ -7,7 +7,7 @@ struct RushPlain: Equatable {
     var itemPriorityActId: String
     var deviceId: String
     var appUserAgent: String = AuthDigest.nativeUA
-    var mtr: String = ""
+    var mtr: String = AuthDigest.mtR
     var ydLogId: String = ""
     var ydToken: String = ""
     var userId: String = ""
