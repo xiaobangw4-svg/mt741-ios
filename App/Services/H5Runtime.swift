@@ -95,13 +95,14 @@ final class H5Runtime: NSObject, ObservableObject {
         self.cwbStore = cwbStore
         self.bridgeSession = session
         keepInWindow()
+        webView.customUserAgent = CookieBridge.userAgent(from: session)
         let shouldLoad = forceLoad || session.isLoggedIn
         guard shouldLoad else { return }
-        let next = session.cookie + "|" + session.token + "|" + session.authDeviceId + "|" + session.userId + "|" + product.sku
+        let next = session.cookie + "|" + session.token + "|" + session.authDeviceId + "|" + session.userId + "|" + session.bsDvid + "|" + product.sku
         if fingerprint == next, webView.url != nil, !forceLoad { return }
         fingerprint = next
         installPageScripts(session: session)
-        webView.customUserAgent = CookieBridge.userAgent(deviceId: session.authDeviceId)
+        webView.customUserAgent = CookieBridge.userAgent(from: session)
         Task { [weak self] in
             guard let self else { return }
             if !self.didClearSdkBlock {

@@ -48,9 +48,30 @@ final class CookieBridgeTests: XCTestCase {
         XCTAssertTrue(ua.contains("moutaiapp/\(AuthDigest.appVersion)"))
         XCTAssertTrue(ua.contains("device-id/\(AuthDigest.md5Hex("DEV-1"))"))
         XCTAssertFalse(ua.contains("BS-DVID"))
-        let withDvid = CookieBridge.userAgent(deviceId: "DEV-1", bsDvid: "tok")
-        XCTAssertTrue(withDvid.contains("BS-DVID/tok"))
+        let token = String(repeating: "A", count: 86)
+        let withDvid = CookieBridge.userAgent(deviceId: "DEV-1", bsDvid: token)
+        XCTAssertTrue(withDvid.contains("BS-DVID/\(token)"))
         XCTAssertTrue(CookieBridge.h5UA.contains("device-id/"))
+        XCTAssertFalse(CookieBridge.h5UA.contains("BS-DVID"))
+        let sessionUA = CookieBridge.userAgent(from: Session(deviceId: "DEV-1", bsDvid: token))
+        XCTAssertTrue(sessionUA.contains("BS-DVID/\(token)"))
+    }
+
+    func testSanitizeBsDvidRejectsBidAndAcceptsLongTokenOrUA() {
+        XCTAssertEqual(CookieBridge.sanitizeBsDvid(""), "")
+        XCTAssertEqual(CookieBridge.sanitizeBsDvid("tok"), "")
+        XCTAssertEqual(CookieBridge.sanitizeBsDvid("bid-3860976371971-fb35-850f"), "")
+        XCTAssertEqual(CookieBridge.sanitizeBsDvid("BID-3860976371971-fb35-850f"), "")
+        let token = String(repeating: "B", count: 86)
+        XCTAssertEqual(CookieBridge.sanitizeBsDvid("  \(token)  "), token)
+        let ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 moutaiapp/1.9.14 device-id/ca35c580c5c1cf5ec4b5bbd06b39843b BS-DVID/\(token) extra"
+        XCTAssertEqual(CookieBridge.sanitizeBsDvid(ua), token)
+        XCTAssertFalse(CookieBridge.userAgent(deviceId: "DEV-1", bsDvid: "bid-short").contains("BS-DVID"))
+        var request = URLRequest(url: URL(string: "https://app.moutai519.com.cn/")!)
+        CookieBridge.setNativeHeader(&request, bsDvid: "bid-nope")
+        XCTAssertNil(request.value(forHTTPHeaderField: "BS-DVID"))
+        CookieBridge.setNativeHeader(&request, bsDvid: token)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "BS-DVID"), token)
     }
 
     func testRushDropsOfficialOmittedCookies() {

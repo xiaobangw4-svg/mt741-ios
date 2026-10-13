@@ -3,6 +3,8 @@ import SwiftUI
 struct EnvironmentView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @EnvironmentObject private var productStore: ProductStore
+    @State private var bsDvidDraft = ""
+    @State private var bsDvidStatus = "未写入"
 
     var body: some View {
         NavigationStack {
@@ -12,6 +14,24 @@ struct EnvironmentView: View {
                         .accessibilityIdentifier("env.network")
                     row("设备 ID", sessionStore.session.authDeviceId.isEmpty ? sessionStore.session.deviceId : sessionStore.session.authDeviceId)
                     row("登录", sessionStore.session.statusText)
+                }
+                Section("浩天 BS-DVID") {
+                    Text("同机官网 i茅台抓到的长令牌，写入 H5 UA。换号保留，清缓存不删。短 bid- 无效。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("env.bsdvid.help")
+                    TextField("粘贴令牌或整行 UA", text: $bsDvidDraft, axis: .vertical)
+                        .font(.footnote.monospaced())
+                        .lineLimit(3...6)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("env.bsdvid.field")
+                    Button("写入") { saveBsDvid() }
+                        .accessibilityIdentifier("env.bsdvid.save")
+                    Text(bsDvidStatus)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("env.bsdvid.status")
                 }
                 Section("已接入") {
                     row("短信登录", "app.moutai519.com.cn vcode/login")
@@ -26,6 +46,7 @@ struct EnvironmentView: View {
                     row("异步请求", "n≤64，并发 1-16，间隔 0-2000ms")
                     row("易盾", "4025 走远程上号 ngrok 打电脑 8889；连不上弹官网点图")
                     row("支付", "order/pay + requestPay channel=71 拉起支付宝")
+                    row("BS-DVID", "同机官网长令牌贴进 UA；不进 CWB 哈希，换号共用")
                     row("CWB", "H5 WKWebView 拦截 Content-Web-Bb，异步请求自动带上")
                     row("actId", "purchaseInfoV2 POST hot+spuId=\(productStore.selected.spu)")
                     row("组单", "2000 后 v1 compose/submit 出 orderId")
@@ -40,7 +61,31 @@ struct EnvironmentView: View {
                 }
             }
             .navigationTitle("环境")
+            .onAppear { loadBsDvidDraft() }
         }
+    }
+
+    private func loadBsDvidDraft() {
+        let current = sessionStore.session.bsDvid
+        if !current.isEmpty {
+            bsDvidDraft = current
+            bsDvidStatus = "本机已有 \(current.count) 字符"
+        }
+    }
+
+    private func saveBsDvid() {
+        let raw = bsDvidDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let token = sessionStore.applyBsDvid(bsDvidDraft)
+        if raw.isEmpty {
+            bsDvidStatus = "已清空，UA 省略 BS-DVID"
+            return
+        }
+        if token.isEmpty {
+            bsDvidStatus = "未写入：短 bid- 或长度不够"
+            return
+        }
+        bsDvidDraft = token
+        bsDvidStatus = "已写入 \(token.count) 字符，换号保留"
     }
 
     private func row(_ title: String, _ value: String) -> some View {

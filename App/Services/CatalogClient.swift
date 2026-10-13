@@ -122,7 +122,8 @@ enum CatalogClient {
             mtK: mtK,
             mtV: mtV,
             cwb: "",
-            referer: referer
+            referer: referer,
+            bsDvid: session.bsDvid
         ) {
             request.setValue(value, forHTTPHeaderField: key)
         }

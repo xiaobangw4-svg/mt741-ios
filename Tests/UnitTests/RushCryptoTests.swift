@@ -41,5 +41,9 @@ final class RushCryptoTests: XCTestCase {
         XCTAssertFalse(headers.contains { $0.0 == "Cookie" && $0.1.contains("_bs_device_id") })
         let withCWB = HeaderBuilder.headers(deviceId: "DEV", token: "tok", mtK: "1", mtV: "2", cwb: "abc")
         XCTAssertEqual(withCWB.first?.0, "Content-Web-Bb")
+        XCTAssertTrue(headers.contains { $0.0 == "User-Agent" && !$0.1.contains("BS-DVID") })
+        let token = String(repeating: "F", count: 86)
+        let withDvid = HeaderBuilder.headers(deviceId: "DEV", token: "tok", mtK: "1", mtV: "2", cwb: "abc", bsDvid: token)
+        XCTAssertTrue(withDvid.contains { $0.0 == "User-Agent" && $0.1.contains("BS-DVID/\(token)") })
     }
 }

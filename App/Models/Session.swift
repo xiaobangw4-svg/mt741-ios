@@ -8,6 +8,8 @@ struct Session: Equatable, Codable {
     var userName: String = ""
     var token: String = ""
     var cookie: String = ""
+    /// Same-phone official HaoTian long token for H5 UA `BS-DVID/`. Empty = omit. Survives 换号.
+    var bsDvid: String = ""
 
     var isLoggedIn: Bool {
         !userId.isEmpty && (!token.isEmpty || !cookie.isEmpty)
@@ -35,7 +37,36 @@ struct Session: Equatable, Codable {
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case mobile, deviceId, userId, userName, token, cookie
+        case mobile, deviceId, userId, userName, token, cookie, bsDvid
+    }
+
+    init(
+        mobile: String = "",
+        deviceId: String = "",
+        userId: String = "",
+        userName: String = "",
+        token: String = "",
+        cookie: String = "",
+        bsDvid: String = ""
+    ) {
+        self.mobile = mobile
+        self.deviceId = deviceId
+        self.userId = userId
+        self.userName = userName
+        self.token = token
+        self.cookie = cookie
+        self.bsDvid = CookieBridge.sanitizeBsDvid(bsDvid)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        mobile = try c.decodeIfPresent(String.self, forKey: .mobile) ?? ""
+        deviceId = try c.decodeIfPresent(String.self, forKey: .deviceId) ?? ""
+        userId = try c.decodeIfPresent(String.self, forKey: .userId) ?? ""
+        userName = try c.decodeIfPresent(String.self, forKey: .userName) ?? ""
+        token = try c.decodeIfPresent(String.self, forKey: .token) ?? ""
+        cookie = try c.decodeIfPresent(String.self, forKey: .cookie) ?? ""
+        bsDvid = CookieBridge.sanitizeBsDvid(try c.decodeIfPresent(String.self, forKey: .bsDvid) ?? "")
     }
 }
 
@@ -66,7 +97,7 @@ final class SessionStore: ObservableObject {
 
     func logout() {
         let device = session.authDeviceId.isEmpty ? session.deviceId : session.authDeviceId
-        session = Session(deviceId: device)
+        session = Session(deviceId: device, bsDvid: session.bsDvid)
         CookieBridge.apply(session)
     }
 
@@ -85,7 +116,17 @@ final class SessionStore: ObservableObject {
     }
 
     func resetForNextAccount() {
-        session = Session(deviceId: SessionStore.newDeviceId())
+        session = Session(deviceId: SessionStore.newDeviceId(), bsDvid: session.bsDvid)
+    }
+
+    /// Persist a pasted HaoTian token or a full official UA line. Empty raw clears. Rejects `bid-`.
+    @discardableResult
+    func applyBsDvid(_ raw: String) -> String {
+        let token = CookieBridge.sanitizeBsDvid(raw)
+        if session.bsDvid != token {
+            session.bsDvid = token
+        }
+        return token
     }
 
     static func newDeviceId() -> String {

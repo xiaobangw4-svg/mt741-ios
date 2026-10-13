@@ -317,6 +317,7 @@ enum OrderClient {
         request.setValue(HeaderBuilder.mtInfo, forHTTPHeaderField: "MT-Info")
         request.setValue(mtK, forHTTPHeaderField: "MT-K")
         request.setValue(mtV, forHTTPHeaderField: "MT-V")
+        CookieBridge.setNativeHeader(&request, bsDvid: session.bsDvid)
         if !session.token.isEmpty {
             request.setValue(session.token, forHTTPHeaderField: "MT-Token")
         }

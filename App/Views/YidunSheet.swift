@@ -69,6 +69,7 @@ enum YidunWidget {
 struct YidunSheet: View {
     let priorityRecordId: String
     var captchaId: String = YidunClient.captchaId741
+    var userAgent: String = CookieBridge.h5UA
     var onValidate: (String, String) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -80,7 +81,7 @@ struct YidunSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                YidunWebView(captchaId: captchaId) { value, gdx in
+                YidunWebView(captchaId: captchaId, userAgent: userAgent) { value, gdx in
                     guard !didSend, !value.isEmpty else { return }
                     didSend = true
                     validate = value
@@ -113,6 +114,7 @@ struct YidunSheet: View {
 
 struct YidunWebView: UIViewRepresentable {
     var captchaId: String = YidunClient.captchaId741
+    var userAgent: String = CookieBridge.h5UA
     var onValidate: (String, String) -> Void
 
     func makeCoordinator() -> Coordinator {
@@ -127,7 +129,7 @@ struct YidunWebView: UIViewRepresentable {
         config.userContentController = content
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         let view = WKWebView(frame: .zero, configuration: config)
-        view.customUserAgent = CookieBridge.h5UA
+        view.customUserAgent = userAgent
         view.loadHTMLString(YidunWidget.html(captchaId: captchaId), baseURL: URL(string: "https://h5.moutai519.com.cn/"))
         return view
     }

@@ -202,7 +202,8 @@ enum BurstClient {
             mtK: mtK,
             mtV: mtV,
             cwb: cwb,
-            referer: product.h5URL.absoluteString
+            referer: product.h5URL.absoluteString,
+            bsDvid: session.bsDvid
         ) {
             request.setValue(value, forHTTPHeaderField: key)
         }

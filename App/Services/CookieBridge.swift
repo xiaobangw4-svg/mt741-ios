@@ -5,20 +5,52 @@ enum CookieBridge {
     static let h5Host = "h5.moutai519.com.cn"
     static let appHost = "app.moutai519.com.cn"
 
-    /// Official iOS WebView UA from 2026-10-07 capture: moutaiapp/1.9.14 device-id/<32hex> BS-DVID/<token>.
-    /// Sideload has no HaoTian BS-DVID harvest; CWB 768 vs 800 is StyleTotal / ext_142 digits.
+    /// Official iOS WebView UA: moutaiapp/1.9.14 device-id/<32hex> BS-DVID/<haoTian long token>.
+    /// Sideload has no HaoTian SDK; paste the same-phone official-app token. CWB 800 is StyleTotal / ext_142.
+    static let minBsDvidLength = 60
+
+    /// Device-level HaoTian token. Rejects short `bid-` (瑞数) and garbage. Empty means omit the UA suffix.
+    static func sanitizeBsDvid(_ raw: String) -> String {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty { return "" }
+        if let range = text.range(of: "BS-DVID/", options: .caseInsensitive) {
+            text = String(text[range.upperBound...])
+            if let end = text.firstIndex(where: { $0.isWhitespace }) {
+                text = String(text[..<end])
+            }
+            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if text.lowercased().hasPrefix("bid-") { return "" }
+        guard text.count >= minBsDvidLength else { return "" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        if text.unicodeScalars.contains(where: { !allowed.contains($0) }) { return "" }
+        return text
+    }
+
     static func userAgent(deviceId: String, bsDvid: String = "") -> String {
         let raw = deviceId.isEmpty ? "MT741" : deviceId
         let did = AuthDigest.md5Hex(raw)
         var ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 moutaiapp/\(AuthDigest.appVersion) device-id/\(did)"
-        let dvid = bsDvid.trimmingCharacters(in: .whitespacesAndNewlines)
+        let dvid = sanitizeBsDvid(bsDvid)
         if !dvid.isEmpty {
             ua += " BS-DVID/\(dvid)"
         }
         return ua
     }
 
+    static func userAgent(from session: Session) -> String {
+        let device = session.authDeviceId.isEmpty ? "MT741" : session.authDeviceId
+        return userAgent(deviceId: device, bsDvid: session.bsDvid)
+    }
+
     static var h5UA: String { userAgent(deviceId: "MT741") }
+
+    static func setNativeHeader(_ request: inout URLRequest, bsDvid: String) {
+        let token = sanitizeBsDvid(bsDvid)
+        if !token.isEmpty {
+            request.setValue(token, forHTTPHeaderField: "BS-DVID")
+        }
+    }
 
     /// Official 08-29 iOS rush Cookie has no 顶象 / short Bangcle / snaker ids.
     static let rushDropNames: Set<String> = [

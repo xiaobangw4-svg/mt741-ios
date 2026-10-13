@@ -139,6 +139,7 @@ enum PayClient {
         request.setValue(AuthDigest.appVersion, forHTTPHeaderField: "MT-APP-Version")
         request.setValue(mtK, forHTTPHeaderField: "MT-K")
         request.setValue(mtV, forHTTPHeaderField: "MT-V")
+        CookieBridge.setNativeHeader(&request, bsDvid: session.bsDvid)
         if appToken, !session.token.isEmpty {
             request.setValue(session.token, forHTTPHeaderField: "MT-Token")
         }

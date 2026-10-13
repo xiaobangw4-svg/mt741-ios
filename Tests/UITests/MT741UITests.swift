@@ -77,6 +77,9 @@ final class MT741UITests: XCTestCase {
         reveal(app, app.staticTexts["env.address"])
         XCTAssertTrue(app.staticTexts["env.address"].waitForExistence(timeout: 5) || app.otherElements["env.address"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["env.cache"].exists || app.otherElements["env.cache"].exists)
+        reveal(app, app.staticTexts["env.bsdvid.help"])
+        XCTAssertTrue(app.staticTexts["env.bsdvid.help"].waitForExistence(timeout: 5) || app.otherElements["env.bsdvid.help"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.textFields["env.bsdvid.field"].exists || app.textViews["env.bsdvid.field"].exists)
     }
 
     private func tapTab(_ app: XCUIApplication, _ name: String) {

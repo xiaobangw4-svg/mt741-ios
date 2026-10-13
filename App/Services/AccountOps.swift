@@ -214,7 +214,7 @@ enum AccountOps {
         return [
             ("Accept", "application/json, text/javascript, */*; q=0.01"),
             ("X-Requested-With", "XMLHttpRequest"),
-            ("User-Agent", CookieBridge.h5UA),
+            ("User-Agent", CookieBridge.userAgent(from: session)),
             ("Referer", findReferer),
             ("Origin", HeaderBuilder.origin),
             ("MT-APP-Version", AuthDigest.appVersion),
@@ -434,6 +434,7 @@ enum AccountOps {
         request.setValue(HeaderBuilder.mtInfo, forHTTPHeaderField: "MT-Info")
         request.setValue(mtK, forHTTPHeaderField: "MT-K")
         request.setValue(mtV, forHTTPHeaderField: "MT-V")
+        CookieBridge.setNativeHeader(&request, bsDvid: session.bsDvid)
         if !session.token.isEmpty {
             request.setValue(session.token, forHTTPHeaderField: "MT-Token")
         }

@@ -151,6 +151,26 @@ final class JSBridgeTests: XCTestCase {
         XCTAssertTrue(push.contains("1210358433"))
     }
 
+    func testGetUserBaseContextUAIncludesBsDvid() {
+        let token = String(repeating: "D", count: 86)
+        let body: [String: Any] = ["handlerName": "getUserBaseContext", "callbackId": "cb_ua"]
+        let withTok = Session(
+            mobile: "13800138000",
+            deviceId: "DEV-1",
+            userId: "1210358433",
+            token: "app-token",
+            cookie: "wap-cookie",
+            bsDvid: token
+        )
+        let d = JSBridge.decide(name: JSBridge.wvjbHandlerName, body: body, session: withTok)
+        let info = d?.payload as? [String: Any]
+        XCTAssertEqual(JSONText.string(info?["deviceId"]), "DEV-1")
+        XCTAssertTrue(JSONText.string(info?["appUserAgent"]).contains("BS-DVID/\(token)"))
+        let empty = JSBridge.decide(name: JSBridge.wvjbHandlerName, body: body, session: session)
+        let bare = empty?.payload as? [String: Any]
+        XCTAssertFalse(JSONText.string(bare?["appUserAgent"]).contains("BS-DVID"))
+    }
+
     func testEmptyUserIdDoesNotPin() {
         let body: [String: Any] = ["handlerName": "getUserInfo", "callbackId": "cb_empty"]
         let d = JSBridge.decide(name: JSBridge.wvjbHandlerName, body: body, session: Session())

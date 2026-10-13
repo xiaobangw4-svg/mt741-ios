@@ -6,7 +6,7 @@ final class SessionTests: XCTestCase {
         let keys = Session.CodingKeys.allCases.map(\.rawValue)
         XCTAssertFalse(keys.contains("idCode"))
         XCTAssertFalse(keys.contains("id_code"))
-        XCTAssertEqual(Set(keys), Set(["mobile", "deviceId", "userId", "userName", "token", "cookie"]))
+        XCTAssertEqual(Set(keys), Set(["mobile", "deviceId", "userId", "userName", "token", "cookie", "bsDvid"]))
     }
 
     func testDecodeDropsUnknownIdCode() throws {
@@ -19,6 +19,41 @@ final class SessionTests: XCTestCase {
         let object = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
         XCTAssertNil(object["idCode"])
         XCTAssertEqual(object["token"] as? String, "t")
+        XCTAssertEqual(object["bsDvid"] as? String, "")
+    }
+
+    func testBsDvidRoundTripAndSurvivesLogout() throws {
+        let token = String(repeating: "C", count: 86)
+        let key = SessionStore.defaultsKey
+        let prev = UserDefaults.standard.data(forKey: key)
+        defer {
+            if let prev {
+                UserDefaults.standard.set(prev, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+        let store = SessionStore(session: Session(
+            mobile: "19000811875",
+            deviceId: "DEV-OLD",
+            userId: "1",
+            token: "tok",
+            cookie: "wap"
+        ))
+        XCTAssertEqual(store.applyBsDvid("bid-fake"), "")
+        XCTAssertEqual(store.session.bsDvid, "")
+        XCTAssertEqual(store.applyBsDvid(token), token)
+        XCTAssertEqual(store.session.bsDvid, token)
+        store.logout()
+        XCTAssertFalse(store.session.isLoggedIn)
+        XCTAssertEqual(store.session.bsDvid, token)
+        store.resetForNextAccount()
+        XCTAssertEqual(store.session.bsDvid, token)
+        XCTAssertNotEqual(store.session.deviceId, "DEV-OLD")
+        let encoded = try JSONEncoder().encode(store.session)
+        let object = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+        XCTAssertEqual(object["bsDvid"] as? String, token)
+        XCTAssertNil(object["idCode"])
     }
 
     func testLoggedInRequiresUserAndToken() {
@@ -113,6 +148,7 @@ final class SessionTests: XCTestCase {
         XCTAssertEqual(store.session.mobile, "")
         XCTAssertNotEqual(store.session.deviceId, "DEV-OLD")
         XCTAssertFalse(store.session.deviceId.isEmpty)
+        XCTAssertEqual(store.session.bsDvid, "")
     }
 }
 

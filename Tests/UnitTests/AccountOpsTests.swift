@@ -115,6 +115,12 @@ final class AccountOpsTests: XCTestCase {
         XCTAssertTrue(headers.contains { $0.0 == "Referer" && $0.1 == AccountOps.findReferer })
         XCTAssertTrue(headers.contains { $0.0 == "Cookie" && $0.1.contains("MT-Token-Wap=ck") })
         XCTAssertTrue(headers.contains { $0.0 == "Cookie" && $0.1.contains("YX_SUPPORT_WEBP=1") })
+        XCTAssertTrue(headers.contains { $0.0 == "User-Agent" && !$0.1.contains("BS-DVID") })
+        let token = String(repeating: "E", count: 86)
+        let withTok = AccountOps.findIdentityHeaders(session: Session(
+            deviceId: "DEV", userId: "1", token: "tok", cookie: "ck", bsDvid: token
+        ))
+        XCTAssertTrue(withTok.contains { $0.0 == "User-Agent" && $0.1.contains("BS-DVID/\(token)") })
         XCTAssertEqual(AccountOps.findInfoURL.host, "h5.moutai519.com.cn")
         XCTAssertEqual(AccountOps.findSubmitURL.lastPathComponent, "findIdentity")
         XCTAssertEqual(AccountOps.realNameAuthURL.host, "app.moutai519.com.cn")

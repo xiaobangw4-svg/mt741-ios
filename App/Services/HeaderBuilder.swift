@@ -46,13 +46,14 @@ enum HeaderBuilder {
         contentHh: String = "",
         dU: String = "",
         gdxid: String = "",
-        referer: String = HeaderBuilder.referer
+        referer: String = HeaderBuilder.referer,
+        bsDvid: String = ""
     ) -> [(String, String)] {
         let raw: [String: String] = [
             "Content-Web-Bb": cwb,
             "Cookie": cookie(deviceId: deviceId, token: token, dU: dU, gdxid: gdxid),
             "X-Requested-With": "XMLHttpRequest",
-            "User-Agent": CookieBridge.userAgent(deviceId: deviceId),
+            "User-Agent": CookieBridge.userAgent(deviceId: deviceId, bsDvid: bsDvid),
             "Referer": referer,
             "Origin": origin,
             "MT-K": mtK,

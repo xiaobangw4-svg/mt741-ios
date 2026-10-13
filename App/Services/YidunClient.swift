@@ -48,7 +48,8 @@ enum YidunClient {
             mtK: mtK,
             mtV: mtV,
             cwb: "",
-            gdxid: gdxid
+            gdxid: gdxid,
+            bsDvid: session.bsDvid
         ) {
             request.setValue(value, forHTTPHeaderField: key)
         }

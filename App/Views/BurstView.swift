@@ -174,7 +174,8 @@ struct BurstView: View {
             .fullScreenCover(isPresented: $showYidun) {
                 YidunSheet(
                     priorityRecordId: lastHit.priorityRecordId,
-                    captchaId: productStore.selected.captchaId
+                    captchaId: productStore.selected.captchaId,
+                    userAgent: CookieBridge.userAgent(from: sessionStore.session)
                 ) { value, fp in
                     ydToken = value
                     Task { await finishManualYidun(validate: value, fp: fp) }
@@ -452,7 +453,7 @@ struct BurstView: View {
             pageUrl: product.h5URL.absoluteString,
             priorityRecordId: hit.priorityRecordId,
             deviceId: sessionStore.session.authDeviceId,
-            userAgent: CookieBridge.userAgent(deviceId: sessionStore.session.authDeviceId),
+            userAgent: CookieBridge.userAgent(from: sessionStore.session),
             gdxid: gdx
         )
         if !solved.ok {
