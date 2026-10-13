@@ -24,7 +24,7 @@ struct EnvironmentView: View {
                     row("清缓存", "换号前一键清 WK Cookie/_u_id_/Bangcle，避免 4011 和 CWB 串号")
                         .accessibilityIdentifier("env.cache")
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
-                    row("异步请求", "开始默认页内 rushPurchase（wasm 现签 CWB）；可开持续请求")
+                    row("异步请求", "开始默认页内 rushPurchase（wasm 现签 CWB）；顶栏显示 CWB / fk1 / rush")
                     row("易盾", "4025 走远程上号 ngrok 打电脑 8889；连不上弹官网点图")
                     row("支付", "order/pay + requestPay channel=71 拉起支付宝")
                     row("BS-DVID", "同机官网长令牌贴进 UA；不进 CWB 哈希，换号共用")

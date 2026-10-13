@@ -12,6 +12,8 @@ final class H5Runtime: NSObject, ObservableObject {
     @Published var lastProbe = ""
     @Published var styleStatus = "Style未挂"
     @Published var fk1Beats = 0
+    @Published var lastRush = "rush无"
+    @Published var lastFk1 = "fk1无"
     private var fk1WaitedAt: Date?
 
     private var fingerprint = ""
@@ -27,6 +29,7 @@ final class H5Runtime: NSObject, ObservableObject {
         H5Runtime.addPageScripts(to: content, session: nil)
         content.add(proxy, name: CWBHook.handlerName)
         content.add(proxy, name: CWBHook.fk1HandlerName)
+        content.add(proxy, name: CWBHook.netHandlerName)
         content.add(proxy, name: H5Runtime.jsHandlerName)
         content.add(proxy, name: JSBridge.wvjbHandlerName)
         content.add(proxy, name: JSBridge.jxbHandlerName)
@@ -86,6 +89,8 @@ final class H5Runtime: NSObject, ObservableObject {
         pageURL = ""
         lastProbe = ""
         styleStatus = "Style未挂"
+        lastRush = "rush无"
+        lastFk1 = "fk1无"
         bridgeSession = nil
         installPageScripts(session: nil)
         keepInWindow()
@@ -106,6 +111,8 @@ final class H5Runtime: NSObject, ObservableObject {
         fingerprint = next
         fk1Beats = 0
         fk1WaitedAt = nil
+        lastRush = "rush无"
+        lastFk1 = "fk1无"
         installPageScripts(session: session)
         webView.customUserAgent = CookieBridge.userAgent(from: session)
         Task { [weak self] in
@@ -350,6 +357,28 @@ final class H5Runtime: NSObject, ObservableObject {
 
     func noteFk1() {
         fk1Beats += 1
+        lastFk1 = "fk1×\(fk1Beats)"
+    }
+
+    func noteNet(_ body: Any) {
+        let dict: [String: Any]
+        if let row = body as? [String: Any] {
+            dict = row
+        } else if let s = body as? String, let data = s.data(using: .utf8),
+                  let row = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            dict = row
+        } else {
+            return
+        }
+        let kind = JSONText.string(dict["kind"])
+        let status = JSONText.int(dict["status"]) ?? 0
+        let snippet = JSONText.string(dict["body"])
+        if kind == "rush" {
+            let code = snippet.contains("\"code\":") ? snippet : ""
+            lastRush = "rush \(status)" + (code.isEmpty ? "" : " \(String(code.prefix(48)))")
+        } else if kind == "fk1" {
+            lastFk1 = "fk1×\(max(fk1Beats, 1)) HTTP\(status)"
+        }
     }
 
     func waitForFk1(seconds: Double) async -> Bool {
@@ -710,6 +739,12 @@ extension H5Runtime {
             if message.name == CWBHook.fk1HandlerName {
                 DispatchQueue.main.async {
                     self.owner?.noteFk1()
+                }
+                return
+            }
+            if message.name == CWBHook.netHandlerName {
+                DispatchQueue.main.async {
+                    self.owner?.noteNet(body)
                 }
                 return
             }

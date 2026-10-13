@@ -3,6 +3,7 @@ import Foundation
 enum CWBHook {
     static let handlerName = "cwb"
     static let fk1HandlerName = "fk1"
+    static let netHandlerName = "net"
 
     static let javaScript = #"""
     (function () {
@@ -26,6 +27,19 @@ enum CWBHook {
           if (!bridge) return;
           bridge.postMessage({ url: String(url || ''), status: status || 0 });
         } catch (e) {}
+        reportNet('fk1', url, status, '');
+      }
+      function reportNet(kind, url, status, body) {
+        try {
+          var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.net;
+          if (!bridge) return;
+          bridge.postMessage({
+            kind: String(kind || ''),
+            url: String(url || ''),
+            status: status || 0,
+            body: String(body || '').slice(0, 240)
+          });
+        } catch (e1) {}
       }
       function isFk1(u) {
         var s = String(u || '');
@@ -62,7 +76,10 @@ enum CWBHook {
                 if (u2.indexOf('purchaseInfoV2') >= 0) {
                   window.__mt741purchaseInfo = String(this.responseText || '');
                 }
-                if (isFk1(u2) && this.status >= 200 && this.status < 400) {
+                if (u2.indexOf('rushPurchase') >= 0) {
+                  reportNet('rush', u2, this.status, this.responseText);
+                }
+                if (isFk1(u2)) {
                   reportFk1(u2, this.status);
                 }
               } catch (e) {}
@@ -99,7 +116,12 @@ enum CWBHook {
               if (u2.indexOf('purchaseInfoV2') >= 0 && res && res.clone) {
                 res.clone().text().then(function (t) { window.__mt741purchaseInfo = String(t || ''); }).catch(function () {});
               }
-              if (isFk1(u2) && res && res.status >= 200 && res.status < 400) {
+              if (u2.indexOf('rushPurchase') >= 0) {
+                res.clone().text().then(function (t) { reportNet('rush', u2, res.status, t); }).catch(function () {
+                  reportNet('rush', u2, res.status, '');
+                });
+              }
+              if (isFk1(u2)) {
                 reportFk1(u2, res.status);
               }
               if (res && !res.ok && /wasm/i.test(u2)) {
