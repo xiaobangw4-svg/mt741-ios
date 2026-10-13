@@ -61,8 +61,9 @@ struct ContentView: View {
 
     private var stageStatus: String {
         let cwb = cwbStore.cwb.count
+        let cwbText = cwb == 0 ? "CWB 等开火" : "CWB \(cwb)/800"
         let h5 = h5Runtime.ready ? "H5就绪" : "H5加载"
-        return "\(h5) · CWB \(cwb)/800 · \(h5Runtime.lastFk1) · \(h5Runtime.lastRush) · \(h5Runtime.styleStatus)"
+        return "\(h5) · \(cwbText) · \(h5Runtime.lastFk1) · \(h5Runtime.lastRush) · \(h5Runtime.styleStatus)"
     }
 }
 

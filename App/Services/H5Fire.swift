@@ -35,24 +35,17 @@ enum H5Fire {
       }
       function lockDevice(xhr, deviceId) {
         if (!deviceId) return;
-        var origSet = xhr.setRequestHeader.bind(xhr);
-        var didSet = false;
-        xhr.setRequestHeader = function (k, v) {
-          if (String(k).toLowerCase() === 'mt-device-id') {
-            if (didSet) return;
-            didSet = true;
-            return origSet('MT-Device-ID', String(deviceId));
-          }
-          return origSet(k, v);
-        };
-        var origSend = xhr.send.bind(xhr);
-        xhr.send = function (b) {
-          if (!didSet) {
-            try { xhr.setRequestHeader('MT-Device-ID', String(deviceId)); } catch (e) {}
-          }
-          return origSend(b);
-        };
+        try { xhr.setRequestHeader('MT-Device-ID', String(deviceId)); } catch (e) {}
       }
+      window.__mt741signReady = function () {
+        try {
+          if (window.__SIGN_WASM_OK__ || window.__wasm_sign_ok__ || window.__SIGN_WASM_VERSION__) return true;
+        } catch (e) {}
+        try {
+          if (document.querySelector('script[src*="bs_h5"]')) return true;
+        } catch (e2) {}
+        return false;
+      };
       function applyHeaders(xhr, extraHeaders, kv, deviceId) {
         if (extraHeaders) {
           for (var k in extraHeaders) {

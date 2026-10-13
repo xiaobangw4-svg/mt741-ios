@@ -540,7 +540,7 @@ struct BurstView: View {
                 return .ran
             }
         }
-        appendLog("开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku)")
+        appendLog("开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku) \(cwbStore.lengthText)")
         sessionStore.alignDeviceFromToken()
         let stats: BurstStats
         if dest == .h5Page {
@@ -567,7 +567,7 @@ struct BurstView: View {
                 if YidunSolver.isConfigured(solverURL) {
                     Task { await raceRemoteYidun(hit: hit, product: product, dest: dest, epoch: epoch) }
                 }
-                appendLog("完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)\n请在弹层完成点选（本机流量）")
+                appendLog("完成 \(cwbStore.lengthText) ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)\n请在弹层完成点选（本机流量）")
                 return .yidun
             }
             if hit.canCompose, hit.orderId.isEmpty, (!hit.needsYidun || yidunPassed) {
@@ -599,13 +599,13 @@ struct BurstView: View {
             if dest != .mock, (!hit.needsYidun || yidunPassed), hit.isHit || !hit.orderId.isEmpty {
                 showPay = true
             }
-            appendLog("完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)")
+            appendLog("完成 \(cwbStore.lengthText) ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)")
             if hit.isHit || !hit.orderId.isEmpty {
                 return .hit
             }
             return .ran
         }
-        appendLog("完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)")
+        appendLog("完成 \(cwbStore.lengthText) ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)")
         return .ran
     }
 

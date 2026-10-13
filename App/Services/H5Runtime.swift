@@ -153,7 +153,8 @@ final class H5Runtime: NSObject, ObservableObject {
                 shots: [BurstShot(idx: 0, ok: false, status: 0, ms: 0, body: "", error: err)]
             )
         }
-        _ = await waitForCWB(seconds: 8)
+        let signed = await waitForSign(seconds: 12)
+        _ = await waitForCWB(seconds: signed ? 2 : 1)
         await CookieBridge.applyAsync(session)
         let product = request.product
         let deviceId = session.authDeviceId
@@ -342,6 +343,25 @@ final class H5Runtime: NSObject, ObservableObject {
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
         return nil
+    }
+
+    func waitForSign(seconds: Double) async -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if Task.isCancelled { return await signReady() }
+            if await signReady() { return true }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        return await signReady()
+    }
+
+    private func signReady() async -> Bool {
+        await withCheckedContinuation { cont in
+            webView.evaluateJavaScript("window.__mt741signReady ? window.__mt741signReady() : false") { val, _ in
+                let ok = (val as? Bool) ?? ((val as? NSNumber)?.boolValue ?? false)
+                cont.resume(returning: ok)
+            }
+        }
     }
 
     func waitForCWB(seconds: Double) async -> Bool {
