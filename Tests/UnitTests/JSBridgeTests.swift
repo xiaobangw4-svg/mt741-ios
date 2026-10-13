@@ -171,6 +171,25 @@ final class JSBridgeTests: XCTestCase {
         XCTAssertFalse(JSONText.string(bare?["appUserAgent"]).contains("BS-DVID"))
     }
 
+    func testBangcleReportFailsSoH5CanSendFk1() {
+        let wvjb: [String: Any] = ["handlerName": "bangcleReport", "callbackId": "cb_fk1"]
+        let d = JSBridge.decide(name: JSBridge.wvjbHandlerName, body: wvjb, session: session)
+        XCTAssertEqual(d?.jxbStatus, "fail")
+        let info = d?.payload as? [String: Any]
+        XCTAssertEqual(JSONText.int(info?["mt_code"]), 404)
+        XCTAssertEqual(info?["success"] as? Bool, false)
+        let jxb: [String: Any] = [
+            "actionName": "bangcleReport",
+            "identifier": "fk1",
+            "data": [:],
+        ]
+        let j = JSBridge.decide(name: JSBridge.jxbHandlerName, body: jxb, session: session)
+        let js = JSBridge.callbackJavaScript(j!)
+        XCTAssertTrue(js.contains("window.Callback"))
+        XCTAssertTrue(js.contains("'fail'"))
+        XCTAssertFalse(js.contains("'success'"))
+    }
+
     func testEmptyUserIdDoesNotPin() {
         let body: [String: Any] = ["handlerName": "getUserInfo", "callbackId": "cb_empty"]
         let d = JSBridge.decide(name: JSBridge.wvjbHandlerName, body: body, session: Session())

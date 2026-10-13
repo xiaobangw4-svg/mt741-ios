@@ -19,6 +19,8 @@ enum JSBridge {
         var isJXB: Bool
         var payload: Any
         var pinUserId: String
+        /// JXB `window.Callback` status. `fail` lets H5 fall back to its own fk1 XHR.
+        var jxbStatus: String = "success"
     }
 
     static func isHandler(_ name: String) -> Bool {
@@ -54,7 +56,8 @@ enum JSBridge {
             jxbIdentifier: identifier,
             isJXB: isJXB,
             payload: payload,
-            pinUserId: pin
+            pinUserId: pin,
+            jxbStatus: key == "bangclereport" ? "fail" : "success"
         )
     }
 
@@ -123,7 +126,8 @@ enum JSBridge {
                 "network": "4G",
             ] as [String: Any]
         case "bangclereport":
-            return ["success": true] as [String: Any]
+            // No native Bangcle SDK. Fake success stops official H5 from POSTing fk1 itself.
+            return ["success": false, "mt_code": 404] as [String: Any]
         case "hideloadingtoast", "showloadingtoast", "showtoast",
              "successcallback", "closewebview", "xsw":
             return ["mt_code": 200] as [String: Any]
@@ -151,7 +155,7 @@ enum JSBridge {
             let data = jsonAtom(decision.payload)
             return """
             (function(){
-              try { window.Callback(\(id), 'success', \(data)); } catch (e) {}
+              try { window.Callback(\(id), '\(decision.jxbStatus)', \(data)); } catch (e) {}
             })();
             """
         }

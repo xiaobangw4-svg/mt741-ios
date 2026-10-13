@@ -35,7 +35,7 @@ struct EnvironmentView: View {
                     row("SKU", "\(productStore.selected.sku) / \(productStore.selected.spu) / \(productStore.selected.volume)")
                 }
                 Section("本 App 没有") {
-                    Text("fk1 / Bangcle 原生 SDK。心跳和 Content-Info-Bb 只在官方「i茅台」里。Sideload 的 MT741 补不出这一层。")
+                    Text("没有 Bangcle 原生 SDK。bangclereport 不假成功，官网页自己的 fk1 XHR 放行。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("env.fk1")
