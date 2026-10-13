@@ -18,6 +18,7 @@ struct MT741App: App {
                 .environmentObject(productStore)
                 .onAppear {
                     UIApplication.shared.isIdleTimerDisabled = true
+                    _ = sessionStore.ingestPasteboardIfEmpty()
                     CookieBridge.apply(sessionStore.session)
                     h5Runtime.keepInWindow()
                     h5Runtime.bindIfNeeded(
@@ -43,6 +44,7 @@ struct MT741App: App {
                 }
                 .onChange(of: scenePhase) { _, phase in
                     if phase == .active {
+                        _ = sessionStore.ingestPasteboardIfEmpty()
                         h5Runtime.keepInWindow()
                     }
                 }

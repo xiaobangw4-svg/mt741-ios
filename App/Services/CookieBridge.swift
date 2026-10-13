@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import WebKit
 
 enum CookieBridge {
@@ -10,6 +11,7 @@ enum CookieBridge {
     static let minBsDvidLength = 60
 
     /// Device-level HaoTian token. Rejects short `bid-` (瑞数) and garbage. Empty means omit the UA suffix.
+    /// Accepts a bare token, official UA `BS-DVID/<tok>`, or rush_capture `H BS-DVID = <tok>`.
     static func sanitizeBsDvid(_ raw: String) -> String {
         var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty { return "" }
@@ -18,13 +20,25 @@ enum CookieBridge {
             if let end = text.firstIndex(where: { $0.isWhitespace }) {
                 text = String(text[..<end])
             }
-            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if let range = text.range(of: "BS-DVID", options: .caseInsensitive) {
+            var rest = String(text[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if rest.hasPrefix("=") {
+                rest = String(rest.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            text = rest.split(whereSeparator: { $0.isWhitespace }).first.map(String.init) ?? ""
         }
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if text.lowercased().hasPrefix("bid-") { return "" }
         guard text.count >= minBsDvidLength else { return "" }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
         if text.unicodeScalars.contains(where: { !allowed.contains($0) }) { return "" }
         return text
+    }
+
+    /// Fill from a pasted string or the system pasteboard. Does not overwrite a caller-owned value.
+    static func ingestPasteboard(_ raw: String? = nil) -> String {
+        let text = raw ?? UIPasteboard.general.string ?? ""
+        return sanitizeBsDvid(text)
     }
 
     static func userAgent(deviceId: String, bsDvid: String = "") -> String {

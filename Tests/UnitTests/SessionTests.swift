@@ -42,6 +42,8 @@ final class SessionTests: XCTestCase {
         ))
         XCTAssertEqual(store.applyBsDvid("bid-fake"), "")
         XCTAssertEqual(store.session.bsDvid, "")
+        XCTAssertEqual(store.applyBsDvid("H BS-DVID = \(token)"), token)
+        store.session.bsDvid = ""
         XCTAssertEqual(store.applyBsDvid(token), token)
         XCTAssertEqual(store.session.bsDvid, token)
         store.logout()

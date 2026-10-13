@@ -66,6 +66,9 @@ final class CookieBridgeTests: XCTestCase {
         XCTAssertEqual(CookieBridge.sanitizeBsDvid("  \(token)  "), token)
         let ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 moutaiapp/1.9.14 device-id/ca35c580c5c1cf5ec4b5bbd06b39843b BS-DVID/\(token) extra"
         XCTAssertEqual(CookieBridge.sanitizeBsDvid(ua), token)
+        XCTAssertEqual(CookieBridge.sanitizeBsDvid("H BS-DVID = \(token)"), token)
+        XCTAssertEqual(CookieBridge.sanitizeBsDvid("BS-DVID=\(token)"), token)
+        XCTAssertEqual(CookieBridge.ingestPasteboard("H BS-DVID = \(token)\n"), token)
         XCTAssertFalse(CookieBridge.userAgent(deviceId: "DEV-1", bsDvid: "bid-short").contains("BS-DVID"))
         var request = URLRequest(url: URL(string: "https://app.moutai519.com.cn/")!)
         CookieBridge.setNativeHeader(&request, bsDvid: "bid-nope")

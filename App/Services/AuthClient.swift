@@ -33,7 +33,7 @@ struct AuthClient {
         self.nowMillis = nowMillis
     }
 
-    func sendVCode(mobile: String, deviceId: String) async -> LoginResult {
+    func sendVCode(mobile: String, deviceId: String, bsDvid: String = "") async -> LoginResult {
         let mobile = AuthDigest.normalizeMobile(mobile)
         if let err = AuthDigest.validateMobile(mobile) {
             return LoginResult(ok: false, message: err, deviceId: deviceId)
@@ -45,7 +45,7 @@ struct AuthClient {
             "timestamp": ts,
         ]
         do {
-            let json = try await postJSON(url: Self.vcodeURL, body: body, deviceId: deviceId, includeMTKV: false)
+            let json = try await postJSON(url: Self.vcodeURL, body: body, deviceId: deviceId, includeMTKV: false, bsDvid: bsDvid)
             let code = Self.jsonCode(json)
             if code == 2000 {
                 return LoginResult(ok: true, message: "验证码已发送", mobile: mobile, deviceId: deviceId)
@@ -57,7 +57,7 @@ struct AuthClient {
         }
     }
 
-    func login(mobile: String, vcode: String, deviceId: String) async -> LoginResult {
+    func login(mobile: String, vcode: String, deviceId: String, bsDvid: String = "") async -> LoginResult {
         let mobile = AuthDigest.normalizeMobile(mobile)
         if let err = AuthDigest.validateMobile(mobile) {
             return LoginResult(ok: false, message: err, deviceId: deviceId)
@@ -72,7 +72,7 @@ struct AuthClient {
             "ydLogId": "",
         ]
         do {
-            let json = try await postJSON(url: Self.loginURL, body: body, deviceId: deviceId, includeMTKV: true)
+            let json = try await postJSON(url: Self.loginURL, body: body, deviceId: deviceId, includeMTKV: true, bsDvid: bsDvid)
             let code = Self.jsonCode(json)
             if code != 2000 {
                 let msg = (json["message"] as? String) ?? "code=\(code.map(String.init) ?? "nil")"
@@ -116,7 +116,7 @@ struct AuthClient {
         return error.localizedDescription
     }
 
-    private func postJSON(url: URL, body: [String: String], deviceId: String, includeMTKV: Bool) async throws -> [String: Any] {
+    private func postJSON(url: URL, body: [String: String], deviceId: String, includeMTKV: Bool, bsDvid: String = "") async throws -> [String: Any] {
         var request = URLRequest(url: url)
         request.timeoutInterval = 12
         request.httpMethod = "POST"
@@ -129,6 +129,7 @@ struct AuthClient {
         request.setValue("WIFI", forHTTPHeaderField: "MT-Network-Type")
         request.setValue("0", forHTTPHeaderField: "MT-User-Tag")
         request.setValue(AuthDigest.nativeUA, forHTTPHeaderField: "User-Agent")
+        CookieBridge.setNativeHeader(&request, bsDvid: bsDvid)
         if includeMTKV {
             let mtK = String(nowMillis())
             let mtV = AuthDigest.mtV(

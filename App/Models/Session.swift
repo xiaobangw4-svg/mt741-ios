@@ -129,6 +129,17 @@ final class SessionStore: ObservableObject {
         return token
     }
 
+    /// If this phone has no token yet, take one from the pasteboard (UA line or `H BS-DVID =`).
+    @discardableResult
+    func ingestPasteboardIfEmpty() -> String {
+        if !session.bsDvid.isEmpty { return session.bsDvid }
+        let token = CookieBridge.ingestPasteboard()
+        if !token.isEmpty {
+            session.bsDvid = token
+        }
+        return session.bsDvid
+    }
+
     static func newDeviceId() -> String {
         UUID().uuidString.uppercased()
     }

@@ -305,9 +305,13 @@ struct BurstView: View {
             log = "先登录，再点「自动出单」。"
             return
         }
+        _ = sessionStore.ingestPasteboardIfEmpty()
         busy = true
         defer { busy = false }
-        log = "1/4 加载官方 \(product.volume) 商品页…"
+        let dvidHint = sessionStore.session.bsDvid.isEmpty
+            ? "UA 无 BS-DVID，先复制官网长令牌"
+            : "BS-DVID \(sessionStore.session.bsDvid.count) 字符"
+        log = "1/4 加载官方 \(product.volume) 商品页… \(dvidHint)"
         sessionStore.alignDeviceFromToken()
         h5Runtime.bindIfNeeded(
             session: sessionStore.session,
@@ -370,6 +374,7 @@ struct BurstView: View {
             target: dest,
             product: product
         )
+        _ = sessionStore.ingestPasteboardIfEmpty()
         log = "开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku)"
         sessionStore.alignDeviceFromToken()
         let stats: BurstStats

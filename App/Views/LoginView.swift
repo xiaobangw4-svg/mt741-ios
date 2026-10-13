@@ -45,6 +45,8 @@ struct LoginView: View {
                         .accessibilityIdentifier("login.device")
                 }
 
+                BsDvidSection()
+
                 Section {
                     Button(busy ? "发送中…" : "发送验证码") { Task { await sendCode() } }
                         .disabled(busy)
@@ -171,6 +173,7 @@ struct LoginView: View {
                 if addrMobile.isEmpty {
                     addrMobile = sessionStore.session.mobile
                 }
+                _ = sessionStore.ingestPasteboardIfEmpty()
             }
             .alert("注销账号不可逆", isPresented: $confirmCancel) {
                 Button("取消", role: .cancel) {}
@@ -185,17 +188,24 @@ struct LoginView: View {
         busy = true
         banner = "正在发送验证码…"
         defer { busy = false }
-        let result = await AuthClient().sendVCode(mobile: mobile, deviceId: sessionStore.session.deviceId)
+        _ = sessionStore.ingestPasteboardIfEmpty()
+        let result = await AuthClient().sendVCode(
+            mobile: mobile,
+            deviceId: sessionStore.session.deviceId,
+            bsDvid: sessionStore.session.bsDvid
+        )
         banner = result.message
     }
 
     private func submitLogin() async {
         busy = true
         defer { busy = false }
+        _ = sessionStore.ingestPasteboardIfEmpty()
         let result = await AuthClient().login(
             mobile: mobile,
             vcode: vcode,
-            deviceId: sessionStore.session.deviceId
+            deviceId: sessionStore.session.deviceId,
+            bsDvid: sessionStore.session.bsDvid
         )
         banner = result.message
         if result.ok {

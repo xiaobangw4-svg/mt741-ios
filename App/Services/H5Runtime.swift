@@ -116,6 +116,14 @@ final class H5Runtime: NSObject, ObservableObject {
     }
 
     func fire(request: BurstRequest, session: Session) async -> BurstStats {
+        var session = session
+        if session.bsDvid.isEmpty {
+            let token = CookieBridge.ingestPasteboard()
+            if !token.isEmpty {
+                session.bsDvid = token
+            }
+        }
+        webView.customUserAgent = CookieBridge.userAgent(from: session)
         keepInWindow()
         let already = await fireFunctionReady()
         if !already, let err = await waitUntilReady(seconds: 8, product: request.product, session: session) {
