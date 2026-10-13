@@ -53,6 +53,12 @@ final class MT741UITests: XCTestCase {
         tapTab(app, "异步")
         XCTAssertTrue(app.staticTexts["burst.log"].waitForExistence(timeout: 8), "日志应在异步页最上面")
         XCTAssertTrue(app.buttons["burst.auto"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["burst.pause"].waitForExistence(timeout: 8), "异步页应有暂停")
+        XCTAssertTrue(
+            app.switches["burst.loop"].waitForExistence(timeout: 8)
+                || app.otherElements["burst.loop"].waitForExistence(timeout: 2),
+            "异步页应有持续请求开关"
+        )
         XCTAssertTrue(app.buttons["burst.fetchAct"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["burst.fetchHint"].waitForExistence(timeout: 5))
         let start = app.buttons["burst.start"]

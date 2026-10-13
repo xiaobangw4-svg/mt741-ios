@@ -105,11 +105,21 @@ enum BurstClient {
         await withTaskGroup(of: BurstShot.self) { group in
             for i in 0..<n {
                 group.addTask {
+                    if Task.isCancelled {
+                        return BurstShot(idx: i, ok: false, status: 0, ms: 0, body: "", error: "paused")
+                    }
                     if interval > 0, i > 0 {
                         let ns = UInt64(i) * UInt64(interval) * 1_000_000
                         try? await Task.sleep(nanoseconds: ns)
+                        if Task.isCancelled {
+                            return BurstShot(idx: i, ok: false, status: 0, ms: 0, body: "", error: "paused")
+                        }
                     }
                     await gate.acquire()
+                    if Task.isCancelled {
+                        await gate.release()
+                        return BurstShot(idx: i, ok: false, status: 0, ms: 0, body: "", error: "paused")
+                    }
                     let shot = await one(
                         idx: i,
                         target: request.target,

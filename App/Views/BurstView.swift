@@ -18,8 +18,11 @@ struct BurstView: View {
     @State private var ydToken = ""
     @State private var ydLogId = ""
     @State private var solverURL = YidunSolver.storedURL
-    @State private var log = "真机出单：登录后点「自动出单」。本机试跑用「开始异步请求」。"
+    @State private var logBook = BurstLog(hint: "真机出单：登录后点「自动出单」。本机试跑用「开始」。打开持续请求会一轮接一轮，点暂停停下。")
     @State private var busy = false
+    @State private var running = false
+    @State private var continuous = false
+    @State private var runTask: Task<Void, Never>?
     @State private var confirmOfficial = false
     @State private var confirmH5 = false
     @State private var showYidun = false
@@ -32,122 +35,116 @@ struct BurstView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("日志") {
-                    Text(log)
-                        .font(.footnote.monospaced())
-                        .textSelection(.enabled)
-                        .frame(minHeight: 88, alignment: .topLeading)
-                        .accessibilityIdentifier("burst.log")
-                }
-                Section {
-                    Text(pipelineStatus)
-                        .font(.footnote.monospaced())
-                        .accessibilityIdentifier("burst.pipeline")
-                    Button(busy ? "自动出单中…" : "自动出单") {
-                        Task { await autoRun() }
-                    }
-                    .disabled(busy)
-                    .accessibilityIdentifier("burst.auto")
-                    Text("上面就是官网商品页。登录后点「自动出单」：页内 wasm 现签 CWB → 拉当日 actId → 开火 → 组单支付。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                Section("\(productStore.selected.volume) 异步请求") {
-                    TextField("活动 ID", text: $actId)
-                        .keyboardType(.numberPad)
-                        .accessibilityIdentifier("burst.actId")
-                    TextField("数量", text: $amount)
-                        .keyboardType(.numberPad)
-                        .accessibilityIdentifier("burst.amount")
-                    TextField("请求数 n（1-64）", text: $n)
-                        .keyboardType(.numberPad)
-                        .accessibilityIdentifier("burst.n")
-                    TextField("门店 shopId（可空）", text: $shopId)
-                        .textInputAutocapitalization(.never)
-                        .accessibilityIdentifier("burst.shopId")
-                    Button(busy ? "拉取中…" : "拉取当日 actId") { Task { await fetchActId() } }
-                        .disabled(busy)
-                        .accessibilityIdentifier("burst.fetchAct")
-                    Text(fetchHint.isEmpty ? "一点就拉当前商品的当日 actId，结果写在上面这一行和日志里。" : fetchHint)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("burst.fetchHint")
-                }
-                Section {
-                    Button(busy ? "请求中…" : "开始异步请求") { start() }
-                        .disabled(busy || actId.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .accessibilityIdentifier("burst.start")
-                    Button("只生成 body") { dryRun() }
-                        .disabled(busy)
-                        .accessibilityIdentifier("burst.dry")
-                }
-                Section("速度") {
-                    Picker("档位", selection: $speed) {
-                        Text("最快").tag("max")
-                        Text("快").tag("fast")
-                        Text("中").tag("mid")
-                        Text("慢").tag("slow")
-                        Text("自定义").tag("custom")
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("burst.speed")
-                    .onChange(of: speed) { _, value in
-                        applySpeed(value)
-                    }
-                    TextField("并发 c（1-16）", text: $concurrency)
-                        .keyboardType(.numberPad)
-                        .accessibilityIdentifier("burst.c")
-                    TextField("间隔 ms（0-2000）", text: $interval)
-                        .keyboardType(.numberPad)
-                        .accessibilityIdentifier("burst.interval")
-                    Text("间隔是相邻请求的启动间隔。默认 40ms。0=拉满，只受并发限制。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                Section("目标") {
-                    Picker("目标", selection: $target) {
-                        Text("本机").tag("mock")
-                        Text("H5出单").tag("h5page")
-                        Text("直连").tag("official")
-                        Text("自定义").tag("custom")
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("burst.target")
-                    if target == "custom" {
-                        TextField("https://...", text: $customURL)
-                            .textInputAutocapitalization(.never)
-                            .accessibilityIdentifier("burst.url")
-                    }
-                    SecureField("Content-Web-Bb", text: $cwb)
-                        .textInputAutocapitalization(.never)
-                        .accessibilityIdentifier("burst.cwb")
-                    Text(cwbStatus)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("burst.cwbStatus")
-                }
-                Section("易盾 / 支付") {
-                    TextField("远程上号 ngrok，如 https://xxxx.ngrok-free.dev", text: $solverURL)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                        .accessibilityIdentifier("burst.solver")
-                        .onChange(of: solverURL) { _, value in
-                            YidunSolver.storedURL = value
+            VStack(spacing: 0) {
+                logPanel
+                controlBar
+                Form {
+                    Section {
+                        Text(pipelineStatus)
+                            .font(.footnote.monospaced())
+                            .accessibilityIdentifier("burst.pipeline")
+                        Button(busy ? "自动出单中…" : "自动出单") {
+                            kickoff { await autoRun() }
                         }
-                    Text("抢购走本机流量。4025 用远程上号同一条 ngrok 打电脑 8889 自动过点图；连不上立刻弹官网点选，手点即可。不用开 Wi-Fi。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    TextField("ydToken / validate", text: $ydToken)
-                        .textInputAutocapitalization(.never)
-                        .accessibilityIdentifier("burst.ydToken")
-                    TextField("ydLogId", text: $ydLogId)
-                        .textInputAutocapitalization(.never)
-                        .accessibilityIdentifier("burst.ydLogId")
-                    Button("打开易盾点图") { showYidun = true }
-                        .accessibilityIdentifier("burst.yidun")
-                    Button("打开支付") { showPay = true }
-                        .accessibilityIdentifier("burst.pay")
+                        .disabled(busy)
+                        .accessibilityIdentifier("burst.auto")
+                        Text("上面就是官网商品页。登录后点「自动出单」：页内 wasm 现签 CWB → 拉当日 actId → 开火 → 组单支付。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Section("\(productStore.selected.volume) 异步请求") {
+                        TextField("活动 ID", text: $actId)
+                            .keyboardType(.numberPad)
+                            .accessibilityIdentifier("burst.actId")
+                        TextField("数量", text: $amount)
+                            .keyboardType(.numberPad)
+                            .accessibilityIdentifier("burst.amount")
+                        TextField("请求数 n（1-64）", text: $n)
+                            .keyboardType(.numberPad)
+                            .accessibilityIdentifier("burst.n")
+                        TextField("门店 shopId（可空）", text: $shopId)
+                            .textInputAutocapitalization(.never)
+                            .accessibilityIdentifier("burst.shopId")
+                        Button(busy ? "拉取中…" : "拉取当日 actId") { Task { await fetchActId() } }
+                            .disabled(busy)
+                            .accessibilityIdentifier("burst.fetchAct")
+                        Text(fetchHint.isEmpty ? "一点就拉当前商品的当日 actId，结果写在上面这一行和日志里。" : fetchHint)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("burst.fetchHint")
+                    }
+                    Section {
+                        Button("只生成 body") { dryRun() }
+                            .disabled(busy)
+                            .accessibilityIdentifier("burst.dry")
+                    }
+                    Section("速度") {
+                        Picker("档位", selection: $speed) {
+                            Text("最快").tag("max")
+                            Text("快").tag("fast")
+                            Text("中").tag("mid")
+                            Text("慢").tag("slow")
+                            Text("自定义").tag("custom")
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("burst.speed")
+                        .onChange(of: speed) { _, value in
+                            applySpeed(value)
+                        }
+                        TextField("并发 c（1-16）", text: $concurrency)
+                            .keyboardType(.numberPad)
+                            .accessibilityIdentifier("burst.c")
+                        TextField("间隔 ms（0-2000）", text: $interval)
+                            .keyboardType(.numberPad)
+                            .accessibilityIdentifier("burst.interval")
+                        Text("间隔是相邻请求的启动间隔。默认 40ms。0=拉满，只受并发限制。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Section("目标") {
+                        Picker("目标", selection: $target) {
+                            Text("本机").tag("mock")
+                            Text("H5出单").tag("h5page")
+                            Text("直连").tag("official")
+                            Text("自定义").tag("custom")
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("burst.target")
+                        if target == "custom" {
+                            TextField("https://...", text: $customURL)
+                                .textInputAutocapitalization(.never)
+                                .accessibilityIdentifier("burst.url")
+                        }
+                        SecureField("Content-Web-Bb", text: $cwb)
+                            .textInputAutocapitalization(.never)
+                            .accessibilityIdentifier("burst.cwb")
+                        Text(cwbStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("burst.cwbStatus")
+                    }
+                    Section("易盾 / 支付") {
+                        TextField("远程上号 ngrok，如 https://xxxx.ngrok-free.dev", text: $solverURL)
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.URL)
+                            .accessibilityIdentifier("burst.solver")
+                            .onChange(of: solverURL) { _, value in
+                                YidunSolver.storedURL = value
+                            }
+                        Text("抢购走本机流量。4025 用远程上号同一条 ngrok 打电脑 8889 自动过点图；连不上立刻弹官网点选，手点即可。不用开 Wi-Fi。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        TextField("ydToken / validate", text: $ydToken)
+                            .textInputAutocapitalization(.never)
+                            .accessibilityIdentifier("burst.ydToken")
+                        TextField("ydLogId", text: $ydLogId)
+                            .textInputAutocapitalization(.never)
+                            .accessibilityIdentifier("burst.ydLogId")
+                        Button("打开易盾点图") { showYidun = true }
+                            .accessibilityIdentifier("burst.yidun")
+                        Button("打开支付") { showPay = true }
+                            .accessibilityIdentifier("burst.pay")
+                    }
                 }
             }
             .navigationTitle("异步")
@@ -161,13 +158,13 @@ struct BurstView: View {
             }
             .alert("H5 页内出单", isPresented: $confirmH5) {
                 Button("取消", role: .cancel) {}
-                Button("开火") { Task { await runBurst(.h5Page) } }
+                Button("开火") { kickoff { await runBurst(.h5Page) } }
             } message: {
                 Text("在屏幕上的官方商品页里用 XHR 抢 SKU \(productStore.selected.sku)（\(productStore.selected.volume)），页内 wasm 现签 CWB。命中后自动组单、order/pay、拉起支付宝。")
             }
             .alert("直连官方地址", isPresented: $confirmOfficial) {
                 Button("取消", role: .cancel) {}
-                Button("继续") { Task { await runBurst(.official) } }
+                Button("继续") { kickoff { await runBurst(.official) } }
             } message: {
                 Text("URLSession 直连，没有页内 wasm 现签。真机出单请用「H5出单」。")
             }
@@ -192,17 +189,106 @@ struct BurstView: View {
         }
     }
 
+    private var logPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("日志")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                Spacer()
+                Button("清空") {
+                    logBook.reset("日志已清空。")
+                }
+                .font(.caption)
+                .foregroundStyle(AppTheme.gold)
+                .accessibilityIdentifier("burst.clear")
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Text(logBook.text)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(Color(red: 0.62, green: 0.96, blue: 0.70))
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                        .id("burst-log-tail")
+                        .accessibilityIdentifier("burst.log")
+                }
+                .onChange(of: logBook.text) { _, _ in
+                    proxy.scrollTo("burst-log-tail", anchor: .bottom)
+                }
+            }
+        }
+        .frame(height: 168)
+        .background(Color.black.opacity(0.92))
+    }
+
+    private var controlBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Button {
+                    start()
+                } label: {
+                    Label(busy ? "请求中…" : "开始", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(busy || actId.trimmingCharacters(in: .whitespaces).isEmpty)
+                .accessibilityIdentifier("burst.start")
+
+                Button {
+                    pause()
+                } label: {
+                    Label("暂停", systemImage: "pause.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .tint(.orange)
+                .disabled(!busy && !running)
+                .accessibilityIdentifier("burst.pause")
+            }
+            Toggle("持续请求", isOn: $continuous)
+                .accessibilityIdentifier("burst.loop")
+            Text(continuous
+                 ? "打完一轮接着打，直到点暂停、命中出单或弹出易盾。"
+                 : "只打一轮 n 次。打开持续请求会一直打。")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemBackground))
+    }
+
+    private func kickoff(_ work: @escaping () async -> Void) {
+        guard !busy else { return }
+        running = true
+        runTask?.cancel()
+        runTask = Task { await work() }
+    }
+
     private func start() {
         switch target {
         case "h5page":
-            Task { await runBurst(.h5Page) }
+            kickoff { await runBurst(.h5Page) }
         case "official":
             confirmOfficial = true
         case "custom":
-            Task { await runBurst(.custom(customURL.trimmingCharacters(in: .whitespaces))) }
+            kickoff { await runBurst(.custom(customURL.trimmingCharacters(in: .whitespaces))) }
         default:
-            Task { await runBurst(.mock) }
+            kickoff { await runBurst(.mock) }
         }
+    }
+
+    private func pause() {
+        running = false
+        runTask?.cancel()
+        runTask = nil
+        appendLog("暂停")
     }
 
     private func dryRun() {
@@ -215,7 +301,7 @@ struct BurstView: View {
             userId: sessionStore.session.userId
         )
         let body = RushCrypto.rushBody(plain: plain)
-        log = "sku=\(plain.itemCode) act=\(plain.itemPriorityActId) v=0003\nkeys=actParam,v\n\(body.prefix(240))"
+        appendLog("sku=\(plain.itemCode) act=\(plain.itemPriorityActId) v=0003\nkeys=actParam,v\n\(body.prefix(240))")
     }
 
     private var pipelineStatus: String {
@@ -224,7 +310,9 @@ struct BurstView: View {
         let cwbText = cwbStore.lengthText
         let sku = productStore.selected.sku
         let style = h5Runtime.styleStatus
-        return "\(login) · \(h5) · \(cwbText) · \(style) · sku \(sku) actId \(actId.isEmpty ? "无" : actId)"
+        let loop = continuous ? "持续" : "单轮"
+        let state = busy ? "请求中" : "空闲"
+        return "\(login) · \(h5) · \(cwbText) · \(style) · \(loop)/\(state) · sku \(sku) actId \(actId.isEmpty ? "无" : actId)"
     }
 
     private var usedCWB: String {
@@ -250,12 +338,20 @@ struct BurstView: View {
         return "还没有 CWB。点「自动出单」由页内 wasm 现签，不用粘贴。"
     }
 
+    private func appendLog(_ line: String) {
+        logBook.append(line)
+    }
+
+    private func stopped() -> Bool {
+        !running || Task.isCancelled
+    }
+
     private func fetchActId() async {
         let product = productStore.selected
         busy = true
         defer { busy = false }
         fetchHint = "正在拉 \(product.volume)（SKU \(product.sku)）当日 actId…"
-        log = fetchHint
+        appendLog(fetchHint)
         h5Runtime.bindIfNeeded(
             session: sessionStore.session,
             cwbStore: cwbStore,
@@ -280,7 +376,7 @@ struct BurstView: View {
                 return (info, via)
             }
             via = "URLSession"
-            log = "H5 未拿到（\(info.message)），改走 URLSession"
+            appendLog("H5 未拿到（\(info.message)），改走 URLSession")
         }
         info = await CatalogClient.fetch(session: sessionStore.session, product: product)
         return (info, via)
@@ -296,22 +392,26 @@ struct BurstView: View {
         } else {
             fetchHint = "\(product.volume) 拉不到：\(info.message) via \(via)"
         }
-        log = fetchHint + "\nCWB \(cwbStore.cwb.count)/\(CWBStore.officialLength) H5=\(h5Runtime.pageURL)"
+        appendLog(fetchHint + "\nCWB \(cwbStore.cwb.count)/\(CWBStore.officialLength) H5=\(h5Runtime.pageURL)")
     }
 
     private func autoRun() async {
         let product = productStore.selected
         if !sessionStore.session.isLoggedIn {
-            log = "先登录，再点「自动出单」。"
+            appendLog("先登录，再点「自动出单」。")
+            running = false
             return
         }
         _ = sessionStore.ingestPasteboardIfEmpty()
         busy = true
-        defer { busy = false }
+        defer {
+            busy = false
+            running = false
+        }
         let dvidHint = sessionStore.session.bsDvid.isEmpty
             ? "UA 无 BS-DVID，先复制官网长令牌"
             : "BS-DVID \(sessionStore.session.bsDvid.count) 字符"
-        log = "1/4 加载官方 \(product.volume) 商品页… \(dvidHint)"
+        appendLog("1/4 加载官方 \(product.volume) 商品页… \(dvidHint)")
         sessionStore.alignDeviceFromToken()
         h5Runtime.bindIfNeeded(
             session: sessionStore.session,
@@ -321,15 +421,27 @@ struct BurstView: View {
         )
         if !h5Runtime.ready {
             if let err = await h5Runtime.waitUntilLive(seconds: 8) {
-                log = "H5 未就绪：\(err)，改走 URLSession 拉 actId"
+                appendLog("H5 未就绪：\(err)，改走 URLSession 拉 actId")
             }
         }
+        if stopped() {
+            appendLog("已暂停")
+            return
+        }
         _ = await h5Runtime.waitForCWB(seconds: 8)
-        log = "2/4 等待 fk1 心跳…"
+        if stopped() {
+            appendLog("已暂停")
+            return
+        }
+        appendLog("2/4 等待 fk1 心跳…")
         let beat = await h5Runtime.waitForFk1(seconds: 12)
-        log = beat
+        if stopped() {
+            appendLog("已暂停")
+            return
+        }
+        appendLog(beat
             ? "2/4 fk1 心跳已到，拉当日 actId… \(cwbStore.lengthText)"
-            : "2/4 未等到 fk1，仍拉 actId… \(cwbStore.lengthText)"
+            : "2/4 未等到 fk1，仍拉 actId… \(cwbStore.lengthText)")
         var (info, via) = await pullActId(product: product)
         if !info.ok {
             let existing = actId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -348,22 +460,63 @@ struct BurstView: View {
         if !info.ok {
             return
         }
-        log = "3/4 actId=\(actId) sku=\(product.sku) via \(via) 页内开火 n=\(n)…"
-        await executeBurst(.h5Page)
+        if stopped() {
+            appendLog("已暂停")
+            return
+        }
+        appendLog("3/4 actId=\(actId) sku=\(product.sku) via \(via) 页内开火 n=\(n)…")
+        await loopBurst(.h5Page)
     }
 
     private func runBurst(_ dest: BurstTarget) async {
         let product = productStore.selected
         if dest == .h5Page, !sessionStore.session.isLoggedIn {
-            log = "先登录再选「H5出单」。登录后点「自动出单」会加载官方 \(product.volume) 商品页。"
+            appendLog("先登录再选「H5出单」。登录后点「自动出单」会加载官方 \(product.volume) 商品页。")
+            running = false
             return
         }
         busy = true
-        defer { busy = false }
-        await executeBurst(dest)
+        defer {
+            busy = false
+            running = false
+        }
+        await loopBurst(dest)
     }
 
-    private func executeBurst(_ dest: BurstTarget, allowYidunRetry: Bool = true) async {
+    private func loopBurst(_ dest: BurstTarget) async {
+        var round = 0
+        while running && !Task.isCancelled {
+            round += 1
+            if continuous {
+                appendLog("第 \(round) 轮 sku=\(productStore.selected.sku) n=\(n) c=\(concurrency) interval=\(interval)ms")
+            }
+            let result = await executeBurst(dest)
+            if result == .yidun {
+                if continuous {
+                    appendLog("等易盾点图，先停轮询")
+                }
+                running = false
+                return
+            }
+            if result == .hit {
+                if continuous {
+                    appendLog("已命中，停止请求")
+                }
+                running = false
+                return
+            }
+            if !continuous || stopped() {
+                break
+            }
+            let gapMs = max(BurstClient.clampInterval(Int(interval) ?? 40), 40)
+            try? await Task.sleep(nanoseconds: UInt64(gapMs) * 1_000_000)
+        }
+        if stopped() {
+            appendLog("已暂停")
+        }
+    }
+
+    private func executeBurst(_ dest: BurstTarget, allowYidunRetry: Bool = true) async -> BurstRoundResult {
         let product = productStore.selected
         let req = BurstRequest(
             actId: actId.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -380,11 +533,14 @@ struct BurstView: View {
         )
         _ = sessionStore.ingestPasteboardIfEmpty()
         if dest == .h5Page, h5Runtime.fk1Beats == 0 {
-            log = "开火前等待 fk1 心跳…"
+            appendLog("开火前等待 fk1 心跳…")
             let beat = await h5Runtime.waitForFk1(seconds: 12)
-            log = beat ? "fk1 心跳已到，开始开火…" : "未等到 fk1 心跳，仍开火…"
+            appendLog(beat ? "fk1 心跳已到，开始开火…" : "未等到 fk1 心跳，仍开火…")
+            if stopped() {
+                return .ran
+            }
         }
-        log = "开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku)"
+        appendLog("开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku)")
         sessionStore.alignDeviceFromToken()
         let stats: BurstStats
         if dest == .h5Page {
@@ -411,8 +567,8 @@ struct BurstView: View {
                 if YidunSolver.isConfigured(solverURL) {
                     Task { await raceRemoteYidun(hit: hit, product: product, dest: dest, epoch: epoch) }
                 }
-                log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)\n请在弹层完成点选（本机流量）"
-                return
+                appendLog("完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)\n请在弹层完成点选（本机流量）")
+                return .yidun
             }
             if hit.canCompose, hit.orderId.isEmpty, (!hit.needsYidun || yidunPassed) {
                 var addr: [String: Any]?
@@ -443,8 +599,14 @@ struct BurstView: View {
             if dest != .mock, (!hit.needsYidun || yidunPassed), hit.isHit || !hit.orderId.isEmpty {
                 showPay = true
             }
+            appendLog("完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)")
+            if hit.isHit || !hit.orderId.isEmpty {
+                return .hit
+            }
+            return .ran
         }
-        log = "完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)"
+        appendLog("完成 ok=\(stats.ok)/\(stats.n) fail=\(stats.fail) \(stats.elapsedMs)ms c=\(stats.concurrency) interval=\(stats.intervalMs)ms status=\(stats.status)\n\(stats.summary)\(extra)")
+        return .ran
     }
 
     private func raceRemoteYidun(hit: RushHit, product: Product, dest: BurstTarget, epoch: Int) async {
@@ -453,10 +615,19 @@ struct BurstView: View {
         showYidun = false
         pendingRetryDest = nil
         ydToken = passed.token
-        log = "易盾已过（远程 8889），带 ydToken 再打一枪…\n\(passed.message)"
+        appendLog("易盾已过（远程 8889），带 ydToken 再打一枪…\n\(passed.message)")
+        running = true
         busy = true
-        defer { busy = false }
-        await executeBurst(dest, allowYidunRetry: false)
+        defer {
+            busy = false
+            running = false
+        }
+        let result = await executeBurst(dest, allowYidunRetry: false)
+        if result == .hit || result == .yidun || !continuous {
+            return
+        }
+        running = true
+        await loopBurst(dest)
     }
 
     private func passYidun(hit: RushHit, product: Product) async -> YidunSolver.Result {
@@ -507,8 +678,12 @@ struct BurstView: View {
 
     private func finishManualYidun(validate: String, fp: String) async {
         yidunEpoch += 1
+        running = true
         busy = true
-        defer { busy = false }
+        defer {
+            busy = false
+            running = false
+        }
         let product = productStore.selected
         let gdx = fp.isEmpty ? await h5Runtime.cookieValue("gdxidpyhxdE") : fp
         let submitted = await submitYidun(
@@ -518,10 +693,15 @@ struct BurstView: View {
             product: product,
             prefix: "官网点选已完成"
         )
-        log = submitted.message
+        appendLog(submitted.message)
         let dest = pendingRetryDest ?? .h5Page
         pendingRetryDest = nil
-        await executeBurst(dest, allowYidunRetry: false)
+        let result = await executeBurst(dest, allowYidunRetry: false)
+        if result == .hit || result == .yidun || !continuous {
+            return
+        }
+        running = true
+        await loopBurst(dest)
     }
 
     private func applySpeed(_ value: String) {
@@ -542,4 +722,10 @@ struct BurstView: View {
             break
         }
     }
+}
+
+private enum BurstRoundResult {
+    case ran
+    case yidun
+    case hit
 }

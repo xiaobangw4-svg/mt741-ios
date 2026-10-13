@@ -303,6 +303,7 @@ final class H5Runtime: NSObject, ObservableObject {
         let deadline = Date().addingTimeInterval(seconds)
         var last = "H5 页未就绪"
         while Date() < deadline {
+            if Task.isCancelled { return last }
             reinstallHooks()
             if isLive, await requestFunctionReady() {
                 ready = true
@@ -327,6 +328,7 @@ final class H5Runtime: NSObject, ObservableObject {
         }
         let deadline = Date().addingTimeInterval(min(3, max(0, seconds)))
         while Date() < deadline {
+            if Task.isCancelled { return nil }
             if await fireFunctionReady() {
                 return nil
             }
@@ -339,6 +341,7 @@ final class H5Runtime: NSObject, ObservableObject {
         if (cwbStore?.cwb.count ?? 0) > 0 { return true }
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
+            if Task.isCancelled { return (cwbStore?.cwb.count ?? 0) > 0 }
             if (cwbStore?.cwb.count ?? 0) > 0 { return true }
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
@@ -356,6 +359,7 @@ final class H5Runtime: NSObject, ObservableObject {
         }
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
+            if Task.isCancelled { return fk1Beats > 0 }
             if fk1Beats > 0 { return true }
             let n = await pageFk1Count()
             if n > 0 {
