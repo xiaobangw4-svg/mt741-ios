@@ -9,7 +9,7 @@ struct BurstView: View {
     @State private var amount = Product.sku741.defaultAmount
     @State private var n = "8"
     @State private var concurrency = "8"
-    @State private var interval = "0"
+    @State private var interval = "40"
     @State private var speed = "fast"
     @State private var target = "mock"
     @State private var customURL = ""
@@ -101,7 +101,7 @@ struct BurstView: View {
                     TextField("间隔 ms（0-2000）", text: $interval)
                         .keyboardType(.numberPad)
                         .accessibilityIdentifier("burst.interval")
-                    Text("间隔是相邻请求的启动间隔。0=拉满，只受并发限制。")
+                    Text("间隔是相邻请求的启动间隔。默认 40ms。0=拉满，只受并发限制。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -325,7 +325,11 @@ struct BurstView: View {
             }
         }
         _ = await h5Runtime.waitForCWB(seconds: 8)
-        log = "2/4 拉取当日 \(product.volume) actId… \(cwbStore.lengthText)"
+        log = "2/4 等待 fk1 心跳…"
+        let beat = await h5Runtime.waitForFk1(seconds: 12)
+        log = beat
+            ? "2/4 fk1 心跳已到，拉当日 actId… \(cwbStore.lengthText)"
+            : "2/4 未等到 fk1，仍拉 actId… \(cwbStore.lengthText)"
         var (info, via) = await pullActId(product: product)
         if !info.ok {
             let existing = actId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -375,6 +379,11 @@ struct BurstView: View {
             product: product
         )
         _ = sessionStore.ingestPasteboardIfEmpty()
+        if dest == .h5Page, h5Runtime.fk1Beats == 0 {
+            log = "开火前等待 fk1 心跳…"
+            let beat = await h5Runtime.waitForFk1(seconds: 12)
+            log = beat ? "fk1 心跳已到，开始开火…" : "未等到 fk1 心跳，仍开火…"
+        }
         log = "开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku)"
         sessionStore.alignDeviceFromToken()
         let stats: BurstStats
@@ -519,10 +528,10 @@ struct BurstView: View {
         switch value {
         case "max":
             concurrency = "16"
-            interval = "0"
+            interval = "40"
         case "fast":
             concurrency = "8"
-            interval = "0"
+            interval = "40"
         case "mid":
             concurrency = "4"
             interval = "50"

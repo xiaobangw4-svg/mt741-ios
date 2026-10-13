@@ -11,6 +11,8 @@ final class H5Runtime: NSObject, ObservableObject {
     @Published var pageURL = ""
     @Published var lastProbe = ""
     @Published var styleStatus = "Style未挂"
+    @Published var fk1Beats = 0
+    private var fk1WaitedAt: Date?
 
     private var fingerprint = ""
     private var pendingJS: [String: CheckedContinuation<Any?, Error>] = [:]
@@ -24,6 +26,7 @@ final class H5Runtime: NSObject, ObservableObject {
         let content = WKUserContentController()
         H5Runtime.addPageScripts(to: content, session: nil)
         content.add(proxy, name: CWBHook.handlerName)
+        content.add(proxy, name: CWBHook.fk1HandlerName)
         content.add(proxy, name: H5Runtime.jsHandlerName)
         content.add(proxy, name: JSBridge.wvjbHandlerName)
         content.add(proxy, name: JSBridge.jxbHandlerName)
@@ -101,6 +104,8 @@ final class H5Runtime: NSObject, ObservableObject {
         let next = session.cookie + "|" + session.token + "|" + session.authDeviceId + "|" + session.userId + "|" + session.bsDvid + "|" + product.sku
         if fingerprint == next, webView.url != nil, !forceLoad { return }
         fingerprint = next
+        fk1Beats = 0
+        fk1WaitedAt = nil
         installPageScripts(session: session)
         webView.customUserAgent = CookieBridge.userAgent(from: session)
         Task { [weak self] in
@@ -338,6 +343,43 @@ final class H5Runtime: NSObject, ObservableObject {
             try? await Task.sleep(nanoseconds: 200_000_000)
         }
         return (cwbStore?.cwb.count ?? 0) > 0
+    }
+
+    func noteFk1() {
+        fk1Beats += 1
+    }
+
+    func waitForFk1(seconds: Double) async -> Bool {
+        if fk1Beats > 0 { return true }
+        if let waited = fk1WaitedAt, Date().timeIntervalSince(waited) < 15 {
+            return fk1Beats > 0
+        }
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if fk1Beats > 0 { return true }
+            let n = await pageFk1Count()
+            if n > 0 {
+                fk1Beats = max(fk1Beats, n)
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        fk1WaitedAt = Date()
+        return fk1Beats > 0
+    }
+
+    private func pageFk1Count() async -> Int {
+        await withCheckedContinuation { cont in
+            webView.evaluateJavaScript("window.__mt741fk1||0") { val, _ in
+                if let n = val as? Int {
+                    cont.resume(returning: n)
+                } else if let n = val as? Double {
+                    cont.resume(returning: Int(n))
+                } else {
+                    cont.resume(returning: 0)
+                }
+            }
+        }
     }
 
     func refreshStyleStatus() async {
@@ -658,6 +700,12 @@ extension H5Runtime {
             if JSBridge.isHandler(message.name) {
                 DispatchQueue.main.async {
                     self.owner?.handleBridge(message)
+                }
+                return
+            }
+            if message.name == CWBHook.fk1HandlerName {
+                DispatchQueue.main.async {
+                    self.owner?.noteFk1()
                 }
                 return
             }

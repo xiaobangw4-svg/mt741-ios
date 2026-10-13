@@ -2,6 +2,7 @@ import Foundation
 
 enum CWBHook {
     static let handlerName = "cwb"
+    static let fk1HandlerName = "fk1"
 
     static let javaScript = #"""
     (function () {
@@ -12,6 +13,18 @@ enum CWBHook {
           if (!bridge) return;
           bridge.postMessage({ cwb: String(cwb), hh: String(hh || ''), url: String(url || '') });
         } catch (e) {}
+      }
+      function reportFk1(url, status) {
+        try {
+          window.__mt741fk1 = (window.__mt741fk1 || 0) + 1;
+          var bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.fk1;
+          if (!bridge) return;
+          bridge.postMessage({ url: String(url || ''), status: status || 0 });
+        } catch (e) {}
+      }
+      function isFk1(u) {
+        var s = String(u || '');
+        return /bbprbdata/i.test(s) || /fk1\.moutai519\.com\.cn/i.test(s) || /\/bangcle\//i.test(s);
       }
       function fromHeaders(h) {
         var cwb = '', hh = '';
@@ -43,6 +56,9 @@ enum CWBHook {
                 var u2 = String(this.__mt741url || '');
                 if (u2.indexOf('purchaseInfoV2') >= 0) {
                   window.__mt741purchaseInfo = String(this.responseText || '');
+                }
+                if (isFk1(u2) && this.status >= 200 && this.status < 400) {
+                  reportFk1(u2, this.status);
                 }
               } catch (e) {}
             });
@@ -77,6 +93,9 @@ enum CWBHook {
               var u2 = String((res && res.url) || url || '');
               if (u2.indexOf('purchaseInfoV2') >= 0 && res && res.clone) {
                 res.clone().text().then(function (t) { window.__mt741purchaseInfo = String(t || ''); }).catch(function () {});
+              }
+              if (isFk1(u2) && res && res.status >= 200 && res.status < 400) {
+                reportFk1(u2, res.status);
               }
               if (res && !res.ok && /wasm/i.test(u2)) {
                 window.__mt741wasmErr = String(res.status) + ' ' + u2;

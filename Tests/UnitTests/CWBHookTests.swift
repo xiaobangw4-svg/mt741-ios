@@ -12,7 +12,11 @@ final class CWBHookTests: XCTestCase {
         XCTAssertTrue(CWBHook.javaScript.contains("__mt741hookCWB"))
         XCTAssertTrue(CWBHook.javaScript.contains("purchaseInfoV2"))
         XCTAssertTrue(CWBHook.javaScript.contains("__mt741purchaseInfo"))
+        XCTAssertTrue(CWBHook.javaScript.contains("bbprbdata"))
+        XCTAssertTrue(CWBHook.javaScript.contains("messageHandlers.fk1"))
+        XCTAssertTrue(CWBHook.javaScript.contains("__mt741fk1"))
         XCTAssertEqual(CWBHook.handlerName, "cwb")
+        XCTAssertEqual(CWBHook.fk1HandlerName, "fk1")
     }
 
     func testParseMessageDictAndString() {
