@@ -5,20 +5,20 @@ struct BurstView: View {
     @EnvironmentObject private var cwbStore: CWBStore
     @EnvironmentObject private var h5Runtime: H5Runtime
     @EnvironmentObject private var productStore: ProductStore
-    @State private var actId = "103783"
+    @State private var actId = "107427"
     @State private var amount = Product.sku741.defaultAmount
     @State private var n = "8"
     @State private var concurrency = "8"
     @State private var interval = "40"
     @State private var speed = "fast"
-    @State private var target = "mock"
+    @State private var target = ProcessInfo.processInfo.arguments.contains("-ui-testing") ? "mock" : "h5page"
     @State private var customURL = ""
     @State private var cwb = ""
     @State private var shopId = ""
     @State private var ydToken = ""
     @State private var ydLogId = ""
     @State private var solverURL = YidunSolver.storedURL
-    @State private var logBook = BurstLog(hint: "真机出单：登录后点「自动出单」。本机试跑用「开始」。打开持续请求会一轮接一轮，点暂停停下。")
+    @State private var logBook = BurstLog(hint: "真机：登录后点「开始」或「自动出单」，页内 wasm 现签 CWB 打 rushPurchase。本机试跑把目标切到「本机」。")
     @State private var busy = false
     @State private var running = false
     @State private var continuous = false
@@ -237,7 +237,7 @@ struct BurstView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(busy || actId.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(busy || (target != "h5page" && actId.trimmingCharacters(in: .whitespaces).isEmpty))
                 .accessibilityIdentifier("burst.start")
 
                 Button {
@@ -274,7 +274,7 @@ struct BurstView: View {
     private func start() {
         switch target {
         case "h5page":
-            kickoff { await runBurst(.h5Page) }
+            kickoff { await autoRun() }
         case "official":
             confirmOfficial = true
         case "custom":

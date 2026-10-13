@@ -6,6 +6,11 @@ enum CWBHook {
 
     static let javaScript = #"""
     (function () {
+      try {
+        window._bb_h = window._bb_h || 'fk1.moutai519.com.cn/bangcle';
+        window._bb_w = window._bb_w || 'fk1.moutai519.com.cn/bangcle';
+        window._bb_a = window._bb_a || '10001';
+      } catch (e0) {}
       function report(cwb, hh, url) {
         try {
           if (!cwb) return;

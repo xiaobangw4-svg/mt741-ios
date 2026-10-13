@@ -49,6 +49,7 @@ final class MT741UITests: XCTestCase {
 
     func testBurstMockStartExists() {
         let app = XCUIApplication()
+        app.launchArguments.append("-ui-testing")
         app.launch()
         tapTab(app, "异步")
         XCTAssertTrue(app.staticTexts["burst.log"].waitForExistence(timeout: 8), "日志应在异步页最上面")

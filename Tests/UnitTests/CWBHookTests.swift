@@ -15,6 +15,8 @@ final class CWBHookTests: XCTestCase {
         XCTAssertTrue(CWBHook.javaScript.contains("bbprbdata"))
         XCTAssertTrue(CWBHook.javaScript.contains("messageHandlers.fk1"))
         XCTAssertTrue(CWBHook.javaScript.contains("__mt741fk1"))
+        XCTAssertTrue(CWBHook.javaScript.contains("fk1.moutai519.com.cn/bangcle"))
+        XCTAssertTrue(CWBHook.javaScript.contains("_bb_h"))
         XCTAssertEqual(CWBHook.handlerName, "cwb")
         XCTAssertEqual(CWBHook.fk1HandlerName, "fk1")
     }
