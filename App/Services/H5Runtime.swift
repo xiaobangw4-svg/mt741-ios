@@ -476,8 +476,6 @@ final class H5Runtime: NSObject, ObservableObject {
         } else {
             webView.customUserAgent = CookieBridge.userAgent(h5Did: did)
         }
-        let script = "try { window.__FORCE_DID__ = \(jsonAtom(did)); } catch (e) {}"
-        webView.evaluateJavaScript(script, completionHandler: nil)
         return did
     }
 

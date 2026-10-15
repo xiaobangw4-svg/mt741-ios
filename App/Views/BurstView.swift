@@ -18,7 +18,7 @@ struct BurstView: View {
     @State private var ydToken = ""
     @State private var ydLogId = ""
     @State private var solverURL = YidunSolver.storedURL
-    @State private var logBook = BurstLog(hint: "真机：登录后点「开始」或「自动出单」，页内 wasm 现签 CWB 打 rushPurchase。本机试跑把目标切到「本机」。")
+    @State private var logBook = BurstLog(hint: "真机：登录后商品页就是官网 H5，点「开始」只在页上加 rush XHR，wasm 现签。本机试跑把目标切到「本机」。")
     @State private var busy = false
     @State private var running = false
     @State private var continuous = false

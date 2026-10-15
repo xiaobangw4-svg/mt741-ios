@@ -26,7 +26,7 @@ struct EnvironmentView: View {
                     row("换 did", "登录页「换 did」：保留号和浩天，清 Bangcle h5_did，商品页现发新的 h…")
                         .accessibilityIdentifier("env.rotateDid")
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
-                    row("异步请求", "开始默认页内 rushPurchase（wasm 现签 CWB）；顶栏显示 CWB / fk1 / rush")
+                    row("异步请求", "和官网一样：商品页上加一条 rushPurchase XHR，wasm 自己挂 CWB")
                     row("易盾", "4025 走远程上号 ngrok 打电脑 8889；连不上弹官网点图")
                     row("支付", "order/pay + requestPay channel=71 拉起支付宝")
                     row("BS-DVID", "同机官网长令牌贴进 UA；不进 CWB 哈希，换号共用")
