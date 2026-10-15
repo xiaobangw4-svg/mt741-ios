@@ -119,6 +119,7 @@ final class MT741UITests: XCTestCase {
         XCTAssertTrue(app.buttons["login.sendCode"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["login.submit"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["login.clearCache"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["login.rotateDid"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["login.status"].waitForExistence(timeout: 5))
         reveal(app, app.buttons["login.realNameSubmit"])
         XCTAssertTrue(app.buttons["login.realNameQuery"].waitForExistence(timeout: 5))

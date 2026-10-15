@@ -23,6 +23,8 @@ struct EnvironmentView: View {
                         .accessibilityIdentifier("env.address")
                     row("清缓存", "换号前一键清 WK Cookie/_u_id_/Bangcle，避免 4011 和 CWB 串号")
                         .accessibilityIdentifier("env.cache")
+                    row("换 did", "登录页「换 did」：保留号和浩天，清 Bangcle h5_did，商品页现发新的 h…")
+                        .accessibilityIdentifier("env.rotateDid")
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
                     row("异步请求", "开始默认页内 rushPurchase（wasm 现签 CWB）；顶栏显示 CWB / fk1 / rush")
                     row("易盾", "4025 走远程上号 ngrok 打电脑 8889；连不上弹官网点图")

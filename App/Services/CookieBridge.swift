@@ -131,7 +131,10 @@ enum CookieBridge {
     static func userAgent(deviceId: String = "", bsDvid: String = "", h5Did: String = "") -> String {
         _ = deviceId
         let did = uaDeviceId(h5Did: h5Did)
-        var ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 moutaiapp/\(AuthDigest.appVersion) device-id/\(did)"
+        var ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 moutaiapp/\(AuthDigest.appVersion)"
+        if !did.isEmpty {
+            ua += " device-id/\(did)"
+        }
         let dvid = sanitizeBsDvid(bsDvid)
         if !dvid.isEmpty {
             ua += " BS-DVID/\(dvid)"

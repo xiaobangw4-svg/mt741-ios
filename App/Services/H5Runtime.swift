@@ -94,6 +94,7 @@ final class H5Runtime: NSObject, ObservableObject {
         lastFk1 = "fk1无"
         lastH5Did = ""
         bridgeSession = nil
+        webView.evaluateJavaScript("try { window.__FORCE_DID__ = ''; } catch (e) {}")
         installPageScripts(session: nil)
         keepInWindow()
         if let url = URL(string: "about:blank") {

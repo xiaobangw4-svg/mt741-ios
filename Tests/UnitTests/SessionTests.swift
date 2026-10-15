@@ -57,13 +57,15 @@ final class SessionTests: XCTestCase {
         let object = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
         XCTAssertEqual(object["bsDvid"] as? String, token)
         XCTAssertNil(object["idCode"])
-        XCTAssertEqual(CookieBridge.uaDeviceId(h5Did: store.session.h5Did).count, 32)
         let pageDid = "h463f41b3f65bfa6dd312863db5daabf"
         XCTAssertEqual(store.applyH5Did(pageDid), pageDid)
         store.logout()
         XCTAssertEqual(store.session.h5Did, pageDid)
         store.resetForNextAccount()
         XCTAssertEqual(store.session.h5Did, pageDid)
+        XCTAssertEqual(store.session.bsDvid, token)
+        store.clearH5Did()
+        XCTAssertEqual(store.session.h5Did, "")
         XCTAssertEqual(store.session.bsDvid, token)
     }
 

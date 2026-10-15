@@ -87,9 +87,6 @@ final class SessionStore: ObservableObject {
         if self.session.deviceId.isEmpty {
             self.session.deviceId = SessionStore.newDeviceId()
         }
-        if self.session.h5Did.isEmpty {
-            self.session.h5Did = CookieBridge.newUaDeviceId()
-        }
     }
 
     func applyLogin(_ result: LoginResult) {
@@ -135,6 +132,13 @@ final class SessionStore: ObservableObject {
             session.h5Did = did
         }
         return session.h5Did
+    }
+
+    /// Drop persisted did so the next H5 load lets Bangcle mint a new `h…`. Login and BS-DVID stay.
+    func clearH5Did() {
+        if !session.h5Did.isEmpty {
+            session.h5Did = ""
+        }
     }
 
     /// Persist a pasted HaoTian token or a full official UA line. Empty raw clears. Rejects `bid-`.

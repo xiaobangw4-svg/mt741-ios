@@ -4,6 +4,7 @@ struct LoginView: View {
     @EnvironmentObject private var sessionStore: SessionStore
     @EnvironmentObject private var h5Runtime: H5Runtime
     @EnvironmentObject private var cwbStore: CWBStore
+    @EnvironmentObject private var productStore: ProductStore
     @State private var mobile = ""
     @State private var vcode = ""
     @State private var idName = ""
@@ -63,10 +64,17 @@ struct LoginView: View {
                     Button("一键清除缓存", role: .destructive) { Task { await clearCache() } }
                         .disabled(busy)
                         .accessibilityIdentifier("login.clearCache")
+                    Button("换 did") { Task { await rotateDid() } }
+                        .disabled(busy)
+                        .accessibilityIdentifier("login.rotateDid")
                     Text("换号前要清。WK 里的 Cookie、_u_id_、Bangcle 指纹会留给下一个号，容易 4011 或 CWB 串身份。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("login.clearNote")
+                    Text("换 did：登录和浩天令牌保留，清掉 h5_did / _d_u / __FORCE_DID__，再开商品页让 wasm 发新的 h…。旧 (userId, did) 慢车道分清不掉，只是换一对。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("login.rotateDidNote")
                 }
 
                 Section("状态") {
@@ -230,6 +238,23 @@ struct LoginView: View {
         vcode = ""
         resetSensitiveFields()
         banner = "缓存已清，可登录下一个号"
+    }
+
+    private func rotateDid() async {
+        busy = true
+        defer { busy = false }
+        sessionStore.clearH5Did()
+        cwbStore.reset()
+        await CookieBridge.wipeWebsiteData()
+        h5Runtime.resetSite()
+        await CookieBridge.applyAsync(sessionStore.session)
+        h5Runtime.bindIfNeeded(
+            session: sessionStore.session,
+            cwbStore: cwbStore,
+            product: productStore.selected,
+            forceLoad: true
+        )
+        banner = "did 已清，等商品页出新的 h… 再开火"
     }
 
     private func currentDraft() -> AddressDraft {
