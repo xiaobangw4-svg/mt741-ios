@@ -38,6 +38,9 @@ targets:
         LSApplicationQueriesSchemes:
           - alipays
           - alipay
+          - jdpay
+          - jdpayopen
+          - jdmobilejdpay
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
           NSAllowsLocalNetworking: true

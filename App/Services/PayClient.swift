@@ -5,6 +5,8 @@ enum PayClient {
     static let orderPayURL = URL(string: "https://app.moutai519.com.cn/xhr/front/trade/order/pay")!
     static let requestPayURL = URL(string: "https://payapi.moutai519.com.cn/settle-api-server/anon/pay/requestPay")!
     static let channel71 = "71"
+    static let channel81 = "81"
+    static let channel90 = "90"
     static let appId = "MT519IOS"
     static let appKey = "8C79446361034bd2aE98b27E153a2eA8"
     static let sm4Key = "e881E52D7932Cf00"
@@ -37,9 +39,9 @@ enum PayClient {
         return tn.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    static func requestPay(tn: String, orderId: String = "", channel: String = channel71) async -> (message: String, payURL: URL?) {
+    static func requestPay(tn: String, orderId: String = "", channel: String = channel71) async -> (message: String, payURL: URL?, more: [URL]) {
         let tn = tn.trimmingCharacters(in: .whitespacesAndNewlines)
-        if tn.isEmpty { return ("TN 为空", nil) }
+        if tn.isEmpty { return ("TN 为空", nil, []) }
         let salesId = requestPaySalesId(orderId: orderId, tn: tn)
         let ts = String(Int64(Date().timeIntervalSince1970 * 1000))
         let inJson = "{\"PAY_CHANNEL\":\"\(channel)\",\"TN\":\"\(tn)\"}"
@@ -70,18 +72,42 @@ enum PayClient {
             let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
             let text = String(data: data, encoding: .utf8) ?? ""
             if let http, !(200...299).contains(http.statusCode) {
-                return ("requestPay HTTP \(http.statusCode) \(text.prefix(180))", nil)
+                return ("requestPay HTTP \(http.statusCode) \(text.prefix(180))", nil, [])
             }
             let code = AuthClient.jsonCode(obj)
             let payload = obj["data"] as? [String: Any] ?? obj
-            let url = extractPayURL(payload) ?? extractPayURL(obj)
-            if let url {
-                return ("requestPay code=\(code.map(String.init) ?? "?") 可打开支付", url)
+            let urls = payURLs(from: payload, channel: channel)
+            let resolved = urls.isEmpty ? payURLs(from: obj, channel: channel) : urls
+            if let url = resolved.first {
+                return ("requestPay code=\(code.map(String.init) ?? "?") 可打开\(channelName(channel))", url, Array(resolved.dropFirst()))
             }
-            return ("requestPay code=\(code.map(String.init) ?? "?") \(text.prefix(180))", nil)
+            return ("requestPay code=\(code.map(String.init) ?? "?") \(text.prefix(180))", nil, [])
         } catch {
-            return (AuthClient.describe(error), nil)
+            return (AuthClient.describe(error), nil, [])
         }
+    }
+
+    static func channelName(_ channel: String) -> String {
+        switch channel {
+        case channel81: return "贵州银行"
+        case channel90: return "京东金融"
+        default: return "支付宝"
+        }
+    }
+
+    static func payURLs(from obj: [String: Any], channel: String) -> [URL] {
+        switch channel {
+        case channel81:
+            return extractBankPageURL(obj).map { [$0] } ?? []
+        case channel90:
+            return extractJDPayURLs(obj)
+        default:
+            return extractPayURL(obj).map { [$0] } ?? []
+        }
+    }
+
+    static func payURL(from obj: [String: Any], channel: String) -> URL? {
+        payURLs(from: obj, channel: channel).first
     }
 
     static func extractPayURL(_ obj: [String: Any]) -> URL? {
@@ -106,9 +132,117 @@ enum PayClient {
         return nil
     }
 
-    static func open(_ url: URL) {
+    /// Channel 81 AUTH is `{PageURL: https://...}` or the same JSON string.
+    static func extractBankPageURL(_ obj: [String: Any]) -> URL? {
+        let keys = ["PageURL", "pageURL", "pageUrl", "url", "URL"]
+        for key in keys {
+            if let url = httpURL(from: obj[key]) { return url }
+        }
+        if let nested = obj["AUTH_CODE"] as? [String: Any] {
+            return extractBankPageURL(nested)
+        }
+        if let raw = obj["AUTH_CODE"] as? String {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let url = httpURL(from: trimmed) { return url }
+            if let data = trimmed.data(using: .utf8),
+               let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                return extractBankPageURL(parsed)
+            }
+        }
+        return nil
+    }
+
+    /// Channel 90 AUTH is `{appId, merchantId, tradeNo, signData}`.
+    /// jdpay:// JSON keys are `{orderId, appId, merchant, signData}`.
+    static func extractJDPayURLs(_ obj: [String: Any]) -> [URL] {
+        if let raw = stringValue(obj["AUTH_CODE"]), isJDPayScheme(raw), let url = URL(string: raw) {
+            return [url]
+        }
+        if let page = extractBankPageURL(obj),
+           let host = page.host?.lowercased(),
+           host.contains("jd") || host.contains("jingdong") {
+            return [page]
+        }
+        guard let json = jdPayJSON(from: jdAuthMap(obj) ?? [:]) else { return [] }
+        let enc = formEncode(json)
+        return [
+            URL(string: "jdpay://?params=\(enc)"),
+            URL(string: "jdpayopen://?params=\(enc)"),
+            URL(string: "jdmobilejdpay://jdpay?jumpType=5&jumpUrl=2018&param=\(enc)"),
+        ].compactMap { $0 }
+    }
+
+    static func jdPayJSON(from auth: [String: Any]) -> String? {
+        let appId = firstString(auth, ["appId", "appid"])
+        let merchant = firstString(auth, ["merchantId", "merchant", "merchantNo"])
+        let orderId = firstString(auth, ["tradeNo", "orderId", "orderNo"])
+        let sign = firstString(auth, ["signData", "sign"])
+        if appId.isEmpty || merchant.isEmpty || orderId.isEmpty || sign.isEmpty { return nil }
+        return "{\"orderId\":\"\(jsonEscape(orderId))\",\"appId\":\"\(jsonEscape(appId))\",\"merchant\":\"\(jsonEscape(merchant))\",\"signData\":\"\(jsonEscape(sign))\"}"
+    }
+
+    private static func jdAuthMap(_ obj: [String: Any]) -> [String: Any]? {
+        if let nested = obj["AUTH_CODE"] as? [String: Any] { return nested }
+        if let raw = obj["AUTH_CODE"] as? String {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let data = trimmed.data(using: .utf8),
+               let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                return parsed
+            }
+        }
+        if obj["appId"] != nil || obj["merchantId"] != nil || obj["tradeNo"] != nil {
+            return obj
+        }
+        return nil
+    }
+
+    private static func isJDPayScheme(_ s: String) -> Bool {
+        let low = s.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return low.hasPrefix("jdpay://")
+            || low.hasPrefix("jdpayopen://")
+            || low.hasPrefix("jdmobilejdpay://")
+            || low.hasPrefix("openapp.jdmobile://")
+    }
+
+    private static func firstString(_ obj: [String: Any], _ keys: [String]) -> String {
+        for key in keys {
+            if let s = stringValue(obj[key]), !s.isEmpty { return s }
+        }
+        return ""
+    }
+
+    private static func jsonEscape(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+
+    private static func formEncode(_ s: String) -> String {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-_.~")
+        return s.addingPercentEncoding(withAllowedCharacters: allowed) ?? s
+    }
+
+    private static func httpURL(from any: Any?) -> URL? {
+        guard let s = any as? String else { return nil }
+        let raw = s.replacingOccurrences(of: "\\u0026", with: "&")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let low = raw.lowercased()
+        guard low.hasPrefix("https://") || low.hasPrefix("http://") else { return nil }
+        return URL(string: raw)
+    }
+
+    static func open(_ url: URL, fallbacks: [URL] = []) {
         DispatchQueue.main.async {
-            UIApplication.shared.open(url)
+            openChain([url] + fallbacks)
+        }
+    }
+
+    private static func openChain(_ urls: [URL]) {
+        guard let first = urls.first else { return }
+        UIApplication.shared.open(first) { ok in
+            if !ok {
+                openChain(Array(urls.dropFirst()))
+            }
         }
     }
 

@@ -5,7 +5,7 @@ struct PaySheet: View {
     var autoStart: Bool = false
     @State var orderId: String
     @State var tn: String
-    @State private var log = "channel=71。有订单号就 order/pay，有 TN 就 requestPay 拉起支付宝。"
+    @State private var log = "先 order/pay 拿 TN。再 requestPay：71 支付宝、81 贵州银行、90 京东金融。"
     @State private var busy = false
     @State private var didAuto = false
     @Environment(\.dismiss) private var dismiss
@@ -25,9 +25,15 @@ struct PaySheet: View {
                     Button(busy ? "处理中…" : "order/pay") { Task { _ = await doOrderPay() } }
                         .disabled(busy || orderId.isEmpty)
                         .accessibilityIdentifier("pay.order")
-                    Button("requestPay 并打开支付宝") { Task { await doRequestPay(using: tn) } }
+                    Button("requestPay 并打开支付宝") { Task { await doRequestPay(using: tn, channel: PayClient.channel71) } }
                         .disabled(busy || tn.isEmpty)
                         .accessibilityIdentifier("pay.request")
+                    Button("requestPay 并打开贵州银行") { Task { await doRequestPay(using: tn, channel: PayClient.channel81) } }
+                        .disabled(busy || tn.isEmpty)
+                        .accessibilityIdentifier("pay.requestGzb")
+                    Button("requestPay 并打开京东金融") { Task { await doRequestPay(using: tn, channel: PayClient.channel90) } }
+                        .disabled(busy || tn.isEmpty)
+                        .accessibilityIdentifier("pay.requestJd")
                     Button("打开官方 H5 订单页") {
                         if let url = URL(string: "https://h5.moutai519.com.cn/mt/item/smsp-detail?appConfig=2_1_2") {
                             PayClient.open(url)
@@ -53,7 +59,7 @@ struct PaySheet: View {
                 didAuto = true
                 let paidTn = await doOrderPay()
                 if !paidTn.isEmpty {
-                    await doRequestPay(using: paidTn)
+                    await doRequestPay(using: paidTn, channel: PayClient.channel71)
                 }
             }
         }
@@ -70,13 +76,13 @@ struct PaySheet: View {
         return result.tn
     }
 
-    private func doRequestPay(using paidTn: String) async {
+    private func doRequestPay(using paidTn: String, channel: String) async {
         busy = true
         defer { busy = false }
-        let result = await PayClient.requestPay(tn: paidTn, orderId: orderId)
+        let result = await PayClient.requestPay(tn: paidTn, orderId: orderId, channel: channel)
         log = result.message
         if let url = result.payURL {
-            PayClient.open(url)
+            PayClient.open(url, fallbacks: result.more)
         }
     }
 }

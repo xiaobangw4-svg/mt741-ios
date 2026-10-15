@@ -193,7 +193,7 @@ struct BurstView: View {
                 Button("取消", role: .cancel) {}
                 Button("开火") { kickoff { await runBurst(.h5Page) } }
             } message: {
-                Text("在屏幕上的官方商品页里用 XHR 抢 SKU \(productStore.selected.sku)（\(productStore.selected.volume)），页内 wasm 现签 CWB。命中后自动组单、order/pay、拉起支付宝。")
+                Text("在屏幕上的官方商品页里用 XHR 抢 SKU \(productStore.selected.sku)（\(productStore.selected.volume)），页内 wasm 现签 CWB。命中后自动组单、order/pay、拉起支付宝；支付页也可开贵州银行和京东金融。")
             }
             .alert("直连官方地址", isPresented: $confirmOfficial) {
                 Button("取消", role: .cancel) {}

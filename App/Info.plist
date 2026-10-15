@@ -6,6 +6,9 @@
 	<array>
 		<string>alipays</string>
 		<string>alipay</string>
+		<string>jdpay</string>
+		<string>jdpayopen</string>
+		<string>jdmobilejdpay</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>

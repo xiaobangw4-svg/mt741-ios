@@ -40,7 +40,7 @@ struct EnvironmentView: View {
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
                     row("异步请求", "纯算开着时 URLSession 自带 CWB；关掉则页内 XHR 由 wasm 挂签")
                     row("易盾", "4025 走远程上号 ngrok 打电脑 8889；连不上弹官网点图")
-                    row("支付", "order/pay + requestPay channel=71 拉起支付宝")
+                    row("支付", "order/pay 拿 TN；requestPay 71 支付宝 / 81 贵州银行 / 90 京东金融")
                     row("BS-DVID", "同机官网长令牌贴进 UA；不进 CWB 哈希，换号共用")
                     row("CWB", "默认纯算组包；环境页可切回页内 wasm")
                     row("actId", "每日现拉 purchaseInfoV2，禁止写死。POST hot+spuId=\(productStore.selected.spu)")

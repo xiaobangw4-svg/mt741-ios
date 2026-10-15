@@ -32,6 +32,10 @@ final class RushHitTests: XCTestCase {
         XCTAssertNil(PayClient.extractPayURL([
             "url": "https://mclient.alipay.com/cashierRoutePay.htm?x=1",
         ]))
+        XCTAssertEqual(
+            PayClient.extractBankPageURL(["AUTH_CODE": ["PageURL": "https://bank.example/pay"]])?.host,
+            "bank.example"
+        )
         let sm4 = SM4.encryptECBBase64("1000", key: PayClient.sm4Key)
         XCTAssertFalse(sm4.isEmpty)
         XCTAssertEqual(Data(base64Encoded: sm4)?.count, 16)
