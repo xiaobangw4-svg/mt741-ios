@@ -10,7 +10,7 @@ enum H5Fire {
         if (proto.__mt741didOnce) return;
         proto.__mt741didOnce = true;
         var orig = proto.setRequestHeader;
-        proto.setRequestHeader = function (k, v) {
+        var wrapped = function (k, v) {
           var lk = String(k || '').toLowerCase();
           if (lk === 'mt-device-id') {
             if (this.__mt741didSet) return;
@@ -18,6 +18,8 @@ enum H5Fire {
           }
           return orig.apply(this, arguments);
         };
+        try { wrapped.toString = function () { return Function.prototype.toString.call(orig); }; } catch (e) {}
+        proto.setRequestHeader = wrapped;
       }
       onceDeviceHeader();
       function expireTails() {
@@ -33,11 +35,19 @@ enum H5Fire {
           try { document.cookie = name + '=' + tails[i] + '; expires=Thu, 01 Jan 1970 00:00:00 GMT'; } catch (e) {}
         }
       }
+      function cookieVal(name) {
+        try {
+          var m = String(document.cookie || '').match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
+          return m ? decodeURIComponent(m[1]) : '';
+        } catch (e) { return ''; }
+      }
       function pinCookie(name, value) {
         if (!name || value === undefined || value === null) return;
+        var want = String(value);
+        if (cookieVal(name) === want) return;
         expireCookie(name);
         try {
-          document.cookie = name + '=' + String(value) + '; path=/; domain=h5.moutai519.com.cn';
+          document.cookie = name + '=' + want + '; path=/; domain=h5.moutai519.com.cn';
         } catch (e) {}
       }
       function pinRushCookies(bsDeviceId) {
@@ -140,11 +150,11 @@ enum H5Fire {
           if (kv.v) { try { xhr.setRequestHeader('MT-V', String(kv.v)); } catch (e) {} }
         }
       }
-      function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv, deviceId, token, userId, bsDeviceId) {
+      function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv, deviceId, token, userId, bsDeviceId, skipPin) {
         return new Promise(function (resolve) {
           var t0 = Date.now();
           try {
-            pinIdentity(deviceId, token, userId, bsDeviceId);
+            if (!skipPin) pinIdentity(deviceId, token, userId, bsDeviceId);
             var xhr = new XMLHttpRequest();
             xhr.open(method, url, true);
             xhr.withCredentials = true;
@@ -211,7 +221,7 @@ enum H5Fire {
                 started += 1;
                 inflight += 1;
                 setTimeout(function () {
-                  xhrOnce('POST', url, body, 8000, headers, kvList[i] || {}, deviceId, token, userId, bsDeviceId).then(function (one) {
+                  xhrOnce('POST', url, body, 8000, headers, kvList[i] || {}, deviceId, token, userId, bsDeviceId, true).then(function (one) {
                     shots[i] = {
                       idx: i,
                       ok: one.ok,

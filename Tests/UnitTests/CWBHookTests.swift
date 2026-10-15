@@ -18,6 +18,8 @@ final class CWBHookTests: XCTestCase {
         XCTAssertTrue(CWBHook.javaScript.contains("fk1.moutai519.com.cn/bangcle"))
         XCTAssertTrue(CWBHook.javaScript.contains("_bb_h"))
         XCTAssertTrue(CWBHook.javaScript.contains("rushPurchase"))
+        XCTAssertFalse(CWBHook.javaScript.contains("proto.send ="), "wrapping send makes Bangcle skip CWB")
+        XCTAssertTrue(CWBHook.javaScript.contains("disguise"))
         XCTAssertTrue(CWBHook.javaScript.contains("messageHandlers.net"))
         XCTAssertEqual(CWBHook.netHandlerName, "net")
         XCTAssertEqual(CWBHook.handlerName, "cwb")
