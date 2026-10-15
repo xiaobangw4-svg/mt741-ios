@@ -20,6 +20,8 @@ final class H5FireTests: XCTestCase {
         XCTAssertFalse(H5Fire.javaScript.contains("expireCookie"))
         XCTAssertFalse(H5Fire.javaScript.contains("__mt741didOnce"))
         XCTAssertTrue(H5Fire.javaScript.contains("__mt741h5Did"))
+        XCTAssertTrue(H5Fire.javaScript.contains("__mt741startId"))
+        XCTAssertTrue(H5Fire.javaScript.contains("__36_i__"))
         XCTAssertTrue(H5Fire.javaScript.contains("localStorage.getItem('__ud')"))
         XCTAssertEqual(
             H5Fire.javaScript.components(separatedBy: "setRequestHeader('MT-Device-ID'").count - 1,

@@ -21,6 +21,8 @@ struct BurstStats: Equatable {
     var status: [String: Int]
     var summary: String
     var shots: [BurstShot] = []
+    var lastCWB: String = ""
+    var lastHh: String = ""
 }
 
 enum BurstTarget: Equatable {
@@ -51,6 +53,9 @@ struct BurstRequest: Equatable {
     var ydLogId: String = ""
     var target: BurstTarget = .mock
     var product: Product = .sku741
+    var startId: String = ""
+    var bsDeviceCookie: String = ""
+    var pageURL: String = ""
 }
 
 enum BurstClient {
@@ -99,9 +104,27 @@ enum BurstClient {
             shopId: request.shopId
         )
         let body = RushCrypto.rushBody(plain: plain)
+        let usePure = session.pureSign && request.target != .mock
+        let keys = usePure ? PureCWB.Keys.make() : nil
+        let identity = PureCWB.Identity(
+            did: session.h5Did,
+            startId: request.startId.isEmpty ? session.h5StartId : request.startId,
+            userId: session.userId,
+            pageURL: request.pageURL.isEmpty ? product.h5URL.absoluteString : request.pageURL,
+            userAgent: CookieBridge.userAgent(from: session),
+            bsDeviceId: CookieBridge.sanitizeBsDeviceCookie(request.bsDeviceCookie)
+        )
+        let burstMs = Int64(Date().timeIntervalSince1970 * 1000)
+        let sharedDU: String
+        if usePure, let keys {
+            sharedDU = PureCWB.deviceReport(identity: identity, keys: keys, nowMs: burstMs)
+        } else {
+            sharedDU = ""
+        }
         let gate = AsyncSemaphore(value: c)
         let t0 = Date()
         var shots = Array(repeating: BurstShot(idx: 0, ok: false, status: 0, ms: 0, body: ""), count: n)
+        let firstPacket = FirstPacket()
         await withTaskGroup(of: BurstShot.self) { group in
             for i in 0..<n {
                 group.addTask {
@@ -120,13 +143,36 @@ enum BurstClient {
                         await gate.release()
                         return BurstShot(idx: i, ok: false, status: 0, ms: 0, body: "", error: "paused")
                     }
+                    var cwb = request.cwb
+                    var hh = ""
+                    var dU = sharedDU
+                    if usePure, let keys {
+                        let packet = PureCWB.sign(
+                            bodyJSON: body,
+                            identity: identity,
+                            keys: keys,
+                            nowMs: burstMs + Int64(i)
+                        )
+                        if let packet {
+                            cwb = packet.cwb
+                            hh = packet.hh
+                            dU = packet.dU.isEmpty ? sharedDU : packet.dU
+                            if i == 0 {
+                                firstPacket.cwb = packet.cwb
+                                firstPacket.hh = packet.hh
+                            }
+                        }
+                    }
                     let shot = await one(
                         idx: i,
                         target: request.target,
                         body: body,
                         session: session,
                         token: token,
-                        cwb: request.cwb,
+                        cwb: cwb,
+                        contentHh: hh,
+                        dU: dU,
+                        bsDeviceCookie: identity.bsDeviceId,
                         product: product
                     )
                     await gate.release()
@@ -166,8 +212,15 @@ enum BurstClient {
             fail: fail,
             status: status,
             summary: summary,
-            shots: shots
+            shots: shots,
+            lastCWB: firstPacket.cwb,
+            lastHh: firstPacket.hh
         )
+    }
+
+    private final class FirstPacket: @unchecked Sendable {
+        var cwb = ""
+        var hh = ""
     }
 
     private static func one(
@@ -177,6 +230,9 @@ enum BurstClient {
         session: Session,
         token: String,
         cwb: String,
+        contentHh: String = "",
+        dU: String = "",
+        bsDeviceCookie: String = "",
         product: Product
     ) async -> BurstShot {
         let t0 = Date()
@@ -212,9 +268,12 @@ enum BurstClient {
             mtK: mtK,
             mtV: mtV,
             cwb: cwb,
+            contentHh: contentHh,
+            dU: dU,
             referer: product.h5URL.absoluteString,
             bsDvid: session.bsDvid,
-            h5Did: session.h5Did
+            h5Did: session.h5Did,
+            bsDeviceCookie: bsDeviceCookie
         ) {
             request.setValue(value, forHTTPHeaderField: key)
         }

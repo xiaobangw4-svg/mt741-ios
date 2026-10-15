@@ -491,8 +491,31 @@ final class H5Runtime: NSObject, ObservableObject {
         if !did.isEmpty {
             session.h5Did = did
         }
+        let startId = await captureStartId()
+        if !startId.isEmpty {
+            session.h5StartId = startId
+        }
         webView.customUserAgent = CookieBridge.userAgent(from: session)
         return session
+    }
+
+    func captureStartId() async -> String {
+        var sid = await pageStartId()
+        if sid.isEmpty {
+            sid = BangcleBlob.startId(from: cwbStore?.cwb ?? "")
+        }
+        if !sid.isEmpty, cwbStore?.startId != sid {
+            cwbStore?.startId = sid
+        }
+        return sid
+    }
+
+    private func pageStartId() async -> String {
+        await withCheckedContinuation { cont in
+            webView.evaluateJavaScript("window.__mt741startId ? window.__mt741startId() : ''") { val, _ in
+                cont.resume(returning: (val as? String) ?? "")
+            }
+        }
     }
 
     private func pageH5Did() async -> String {

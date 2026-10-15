@@ -6,7 +6,7 @@ final class SessionTests: XCTestCase {
         let keys = Session.CodingKeys.allCases.map(\.rawValue)
         XCTAssertFalse(keys.contains("idCode"))
         XCTAssertFalse(keys.contains("id_code"))
-        XCTAssertEqual(Set(keys), Set(["mobile", "deviceId", "userId", "userName", "token", "cookie", "bsDvid", "h5Did"]))
+        XCTAssertEqual(Set(keys), Set(["mobile", "deviceId", "userId", "userName", "token", "cookie", "bsDvid", "h5Did", "h5StartId", "pureSign"]))
     }
 
     func testDecodeDropsUnknownIdCode() throws {
@@ -15,6 +15,8 @@ final class SessionTests: XCTestCase {
         """.data(using: .utf8)!
         let session = try JSONDecoder().decode(Session.self, from: json)
         XCTAssertEqual(session.userId, "1")
+        XCTAssertTrue(session.pureSign)
+        XCTAssertEqual(session.h5StartId, "")
         let encoded = try JSONEncoder().encode(session)
         let object = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
         XCTAssertNil(object["idCode"])
@@ -64,8 +66,16 @@ final class SessionTests: XCTestCase {
         store.resetForNextAccount()
         XCTAssertEqual(store.session.h5Did, pageDid)
         XCTAssertEqual(store.session.bsDvid, token)
+        store.applyStartId("mv9e6oop_500vluxp9tu_4")
+        XCTAssertTrue(store.session.pureSign)
+        store.session.pureSign = false
+        store.logout()
+        XCTAssertEqual(store.session.h5Did, pageDid)
+        XCTAssertEqual(store.session.h5StartId, "mv9e6oop_500vluxp9tu_4")
+        XCTAssertFalse(store.session.pureSign)
         store.clearH5Did()
         XCTAssertEqual(store.session.h5Did, "")
+        XCTAssertEqual(store.session.h5StartId, "")
         XCTAssertEqual(store.session.bsDvid, token)
     }
 

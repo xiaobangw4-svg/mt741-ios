@@ -9,6 +9,31 @@ enum StyleTotalPatch {
     static let loopFrom = #"for(var c=0,f=0;f<10;f++){u.style.width=(e+f*s)%256+"px";var l=getComputedStyle(u);c=c+7*parseInt(l.width)+parseInt(l.height)^parseInt(l.paddingTop)}return document.body.removeChild(u),c>>>0"#
     static let loopTo = #"for(var c=0,f=0;f<10;f++){var _spec=(e+f*s)%256;u.style.width=_spec+"px";void u.offsetWidth;var l=getComputedStyle(u);var _fb=_spec;if(a>_fb)_fb=a;if(!(a>o)&&o<_fb)_fb=o;var _n=function(v,fb){var x=parseInt(v,10);return x===x&&!(x===0&&fb)?x:fb};c=c+7*_n(l.width,_fb)+_n(l.height,n)^_n(l.paddingTop,r)}var _h=c>>>0;return document.body.removeChild(u),_h<10000?_h+10000+(e<<8|n):_h"#
 
+    /// Closed-form StyleTotal. Official loop writes width then reads getComputedStyle;
+    /// the arithmetic is (c + 7*w + n) ^ r for 10 rounds, w clamped to [a, o].
+    static func hash(_ token: String) -> UInt32 {
+        let e = hexPair(token, offset: 0)
+        let n = hexPair(token, offset: 2)
+        let r = hexPair(token, offset: 4)
+        let o = hexPair(token, offset: 8)
+        let a = hexPair(token, offset: 10)
+        let s = hexPair(token, offset: 12)
+        let step = s == 0 ? 1 : s
+        var c: UInt32 = 0
+        for f in 0..<10 {
+            var w = (e &+ UInt32(f) &* step) % 256
+            if a > w { w = a }
+            if !(a > o), o < w { w = o }
+            c = (c &+ 7 &* w &+ n) ^ r
+        }
+        return c
+    }
+
+    static func hashForSign(_ token: String, liftToFiveDigits: Bool = true) -> UInt32 {
+        let raw = hash(token)
+        return liftToFiveDigits ? lift(raw, token: token) : raw
+    }
+
     static func hexPair(_ token: String, offset: Int) -> UInt32 {
         if offset >= token.count { return 0 }
         let start = token.index(token.startIndex, offsetBy: offset)

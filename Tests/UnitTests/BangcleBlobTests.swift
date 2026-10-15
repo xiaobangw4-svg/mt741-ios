@@ -18,6 +18,9 @@ final class BangcleBlobTests: XCTestCase {
         let du = "cca1fd2ad0ef4af61c52f2aeb8a53dc0a02c2d3152c548232ae361610a878790191d7a56dc9a138c1aeccf1e28ceb77dcb49258992ea75788077fe8aa02fe8296aa897f2ed3c5a8187f321da1bcb76be59812f068cc613002093de1e7206a2b7e9845b730521f2c07fc9a740814e93dc0d49f2363638ccd4ddefa5c37c628f3e9036df3c8780f332a54c5be37727b8efba612bb1e98824bb88c8166118a9f620ab1476a08d9fd749b09505d2b8e85492aaabcd6c232f2e3a2c4dfaab82d6a9151614f499a9652bea225666770161fc3c10d17dcf1d670410a4cc1773ffada2370fd53ebec7cb06f7ebf2bb0f53f854fe"
         XCTAssertEqual(BangcleBlob.did(from: cwb), "h463f41b3f65bfa6dd312863db5daabf")
         XCTAssertEqual(BangcleBlob.hp(from: cwb), "0")
+        XCTAssertEqual(BangcleBlob.startId(from: cwb), "mv9e6oop_500vluxp9tu_4")
+        XCTAssertEqual(BangcleBlob.wasmVersion(from: cwb), "v1.1.7.4")
+        XCTAssertEqual(BangcleBlob.userId(from: cwb), "1210173951")
         XCTAssertEqual(BangcleBlob.did(from: du), "h463f41b3f65bfa6dd312863db5daabf")
         XCTAssertEqual(BangcleBlob.hp(from: du), "bid-2550189502971-aabf-de1d")
         XCTAssertEqual(

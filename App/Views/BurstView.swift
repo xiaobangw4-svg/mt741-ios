@@ -18,7 +18,7 @@ struct BurstView: View {
     @State private var ydToken = ""
     @State private var ydLogId = ""
     @State private var solverURL = YidunSolver.storedURL
-    @State private var logBook = BurstLog(hint: "真机：登录后商品页就是官网 H5，点「开始」只在页上加 rush XHR，wasm 现签。本机试跑把目标切到「本机」。")
+    @State private var logBook = BurstLog(hint: "真机：登录后商品页给 fk1 / did。默认纯算组 CWB 开火；环境页可切回页内 wasm。本机试跑把目标切到「本机」。")
     @State private var busy = false
     @State private var running = false
     @State private var continuous = false
@@ -362,7 +362,8 @@ struct BurstView: View {
         let style = h5Runtime.styleStatus
         let loop = continuous ? "持续" : "单轮"
         let state = busy ? "请求中" : "空闲"
-        return "\(login) · \(h5) · \(cwbText) · \(style) · \(loop)/\(state) · sku \(sku) actId \(actId.isEmpty ? "无" : actId)"
+        let sign = sessionStore.session.pureSign ? "纯算" : "wasm"
+        return "\(login) · \(h5) · \(cwbText) · \(sign) · \(style) · \(loop)/\(state) · sku \(sku) actId \(actId.isEmpty ? "无" : actId)"
     }
 
     private var usedCWB: String {
@@ -371,6 +372,9 @@ struct BurstView: View {
     }
 
     private var cwbStatus: String {
+        if sessionStore.session.pureSign {
+            return "纯算 CWB：Murmur + field141 + StyleTotal + SM4。商品页仍要开着给 fk1 / did。"
+        }
         if target == "h5page" {
             if h5Runtime.ready {
                 return cwbStore.cwb.isEmpty
@@ -502,7 +506,8 @@ struct BurstView: View {
             appendLog("已暂停")
             return
         }
-        appendLog("3/4 actId=\(actId) sku=\(product.sku) 瓶数=\(product.clampAmount(amount)) via \(via) 页内开火 n=\(n)…")
+        let signHint = sessionStore.session.pureSign ? "纯算开火" : "页内开火"
+        appendLog("3/4 actId=\(actId) sku=\(product.sku) 瓶数=\(product.clampAmount(amount)) via \(via) \(signHint) n=\(n)…")
         await loopBurst(.h5Page)
     }
 
@@ -576,6 +581,21 @@ struct BurstView: View {
                 return .ran
             }
         }
+        if sessionStore.session.pureSign, dest != .mock {
+            _ = sessionStore.applyH5Did(h5Runtime.lastH5Did)
+            if sessionStore.session.h5Did.isEmpty {
+                sessionStore.applyH5Did(BangcleBlob.did(from: cwbStore.cwb))
+            }
+            sessionStore.applyStartId(cwbStore.startId)
+            let pageSid = await h5Runtime.captureStartId()
+            sessionStore.applyStartId(pageSid)
+            if sessionStore.session.h5Did.isEmpty {
+                appendLog("纯算需要页内 did。先加载官方商品页。")
+                return .ran
+            }
+        }
+        let fireDest: BurstTarget = sessionStore.session.pureSign && dest == .h5Page ? .official : dest
+        let bid = sessionStore.session.pureSign && dest != .mock ? await h5Runtime.pageBsDeviceCookie() : ""
         let req = BurstRequest(
             actId: actId.trimmingCharacters(in: .whitespacesAndNewlines),
             amount: product.clampAmount(amount),
@@ -586,8 +606,11 @@ struct BurstView: View {
             shopId: shopId,
             ydToken: ydToken,
             ydLogId: ydLogId,
-            target: dest,
-            product: product
+            target: fireDest,
+            product: product,
+            startId: sessionStore.session.h5StartId,
+            bsDeviceCookie: bid,
+            pageURL: product.h5URL.absoluteString
         )
         _ = sessionStore.ingestPasteboardIfEmpty()
         if dest == .h5Page, h5Runtime.fk1Beats == 0 {
@@ -598,14 +621,19 @@ struct BurstView: View {
                 return .ran
             }
         }
-        appendLog("开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku) 瓶数=\(req.amount) \(cwbStore.lengthText)")
+        let signTag = sessionStore.session.pureSign && dest != .mock ? "纯算" : "wasm"
+        appendLog("开始 \(signTag) \(fireDest == .official ? product.rushURL.absoluteString : fireDest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku) 瓶数=\(req.amount) \(cwbStore.lengthText)")
         sessionStore.alignDeviceFromToken()
         let stats: BurstStats
-        if dest == .h5Page {
+        if fireDest == .h5Page {
             stats = await h5Runtime.fire(request: req, session: sessionStore.session)
             _ = sessionStore.applyH5Did(h5Runtime.lastH5Did)
+            sessionStore.applyStartId(cwbStore.startId)
         } else {
             stats = await BurstClient.burst(request: req, session: sessionStore.session)
+            if !stats.lastCWB.isEmpty {
+                cwbStore.ingest(["cwb": stats.lastCWB, "hh": stats.lastHh])
+            }
         }
         var extra = ""
         if var hit = RushHit.best(from: stats.shots) {

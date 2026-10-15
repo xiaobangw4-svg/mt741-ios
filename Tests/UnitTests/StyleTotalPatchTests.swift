@@ -47,6 +47,14 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(H5PageStart.scripts[3].contains("kYXScriptHandlerName"))
     }
 
+    func testClosedFormMatchesChromeFixture() {
+        let token = "0a140a64006401ff"
+        XCTAssertEqual(StyleTotalPatch.hash(token), 7200)
+        XCTAssertEqual(StyleTotalPatch.hashForSign(token), 19780)
+        XCTAssertEqual(StyleTotalPatch.cwbClass(StyleTotalPatch.hash(token)), 768)
+        XCTAssertEqual(StyleTotalPatch.cwbClass(StyleTotalPatch.hashForSign(token)), 800)
+    }
+
     func testLiftKeepsFiveDigitHash() {
         XCTAssertEqual(StyleTotalPatch.lift(28160, token: "0a140a64006401ff"), 28160)
         XCTAssertEqual(StyleTotalPatch.lift(10000, token: "ffff"), 10000)

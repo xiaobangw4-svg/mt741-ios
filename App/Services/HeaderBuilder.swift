@@ -11,7 +11,7 @@ enum HeaderBuilder {
     /// Official 2026-10-03 H5 rush: Device, Token, _d_u, _sdk_v_, acw, cdn, YX=1. `_bs_device_id` comes from WK SDK, not this string.
     static let cookieOrder = [
         "MT-Device-ID-Wap", "MT-Token-Wap", "_d_u", "_sdk_v_",
-        "acw_tc", "cdn_sec_tc", "YX_SUPPORT_WEBP",
+        "acw_tc", "cdn_sec_tc", "YX_SUPPORT_WEBP", "_bs_device_id",
     ]
     static let skipIfEmpty: Set<String> = ["Content-Web-Bb", "Content-Hh-Bb", "Cookie", "MT-Device-ID"]
     static let sdkVer = "V3.5.0_20260928.1_imaotai"
@@ -20,7 +20,7 @@ enum HeaderBuilder {
     static let referer = "https://h5.moutai519.com.cn/mt/item/smsp-detail?appConfig=2_1_2"
     static let h5UA = CookieBridge.h5UA
 
-    static func cookie(deviceId: String, token: String, dU: String = "", gdxid: String = "", webp: String? = "1") -> String {
+    static func cookie(deviceId: String, token: String, dU: String = "", gdxid: String = "", webp: String? = "1", bsDeviceCookie: String = "") -> String {
         let tokenWap = token
         var values: [String: String] = [
             "MT-Device-ID-Wap": deviceId,
@@ -28,6 +28,10 @@ enum HeaderBuilder {
             "_d_u": dU,
             "_sdk_v_": sdkVer,
         ]
+        let bid = CookieBridge.sanitizeBsDeviceCookie(bsDeviceCookie)
+        if !bid.isEmpty {
+            values["_bs_device_id"] = bid
+        }
         if let webp, !webp.isEmpty {
             values["YX_SUPPORT_WEBP"] = webp
         }
@@ -49,11 +53,12 @@ enum HeaderBuilder {
         gdxid: String = "",
         referer: String = HeaderBuilder.referer,
         bsDvid: String = "",
-        h5Did: String = ""
+        h5Did: String = "",
+        bsDeviceCookie: String = ""
     ) -> [(String, String)] {
         let raw: [String: String] = [
             "Content-Web-Bb": cwb,
-            "Cookie": cookie(deviceId: deviceId, token: token, dU: dU, gdxid: gdxid),
+            "Cookie": cookie(deviceId: deviceId, token: token, dU: dU, gdxid: gdxid, bsDeviceCookie: bsDeviceCookie),
             "X-Requested-With": "XMLHttpRequest",
             "User-Agent": CookieBridge.userAgent(deviceId: deviceId, bsDvid: bsDvid, h5Did: h5Did),
             "Referer": referer,

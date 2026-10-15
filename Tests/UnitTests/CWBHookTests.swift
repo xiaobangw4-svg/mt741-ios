@@ -48,5 +48,6 @@ final class CWBHookTests: XCTestCase {
         XCTAssertEqual(store.cwb, "")
         XCTAssertEqual(store.contentHh, "")
         XCTAssertEqual(store.sourceURL, "")
+        XCTAssertEqual(store.startId, "")
     }
 }

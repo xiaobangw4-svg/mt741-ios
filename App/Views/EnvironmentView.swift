@@ -14,6 +14,18 @@ struct EnvironmentView: View {
                     row("登录", sessionStore.session.statusText)
                 }
                 BsDvidSection()
+                Section("CWB") {
+                    Toggle("纯算签名", isOn: Binding(
+                        get: { sessionStore.session.pureSign },
+                        set: { sessionStore.session.pureSign = $0 }
+                    ))
+                        .accessibilityIdentifier("env.pureSign")
+                    Text(sessionStore.session.pureSign
+                         ? "Murmur + field141 v1.1.7.4 + StyleTotal + SM4。商品页仍开着给 fk1 / did。北京 8/19 点这版能算。"
+                         : "页内 Bangcle wasm 现签，和官网 App 同一条路。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Section("已接入") {
                     row("短信登录", "app.moutai519.com.cn vcode/login")
                     row("实名", "APP getRealNameAuthInfo / realNameAuth，身份证不落盘")
@@ -26,14 +38,14 @@ struct EnvironmentView: View {
                     row("换 did", "登录页「换 did」：保留号和浩天，清 Bangcle h5_did，商品页现发新的 h…")
                         .accessibilityIdentifier("env.rotateDid")
                     row("H5", "WKWebView + MT-Token-Wap，走官方 BotShield wasm")
-                    row("异步请求", "和官网一样：商品页上加一条 rushPurchase XHR，wasm 自己挂 CWB")
+                    row("异步请求", "纯算开着时 URLSession 自带 CWB；关掉则页内 XHR 由 wasm 挂签")
                     row("易盾", "4025 走远程上号 ngrok 打电脑 8889；连不上弹官网点图")
                     row("支付", "order/pay + requestPay channel=71 拉起支付宝")
                     row("BS-DVID", "同机官网长令牌贴进 UA；不进 CWB 哈希，换号共用")
-                    row("CWB", "H5 WKWebView 拦截 Content-Web-Bb，异步请求自动带上")
+                    row("CWB", "默认纯算组包；环境页可切回页内 wasm")
                     row("actId", "每日现拉 purchaseInfoV2，禁止写死。POST hot+spuId=\(productStore.selected.spu)")
                     row("组单", "2000 后 v1 compose/submit 出 orderId")
-                    row("出单", "真机登录后点「自动出单」：加载官方页 → 现签 CWB → 拉 actId → 开火 → 组单支付")
+                    row("出单", "真机登录后点「自动出单」：加载官方页 → fk1 → 拉 actId → 纯算开火 → 组单支付")
                     row("SKU", "\(productStore.selected.sku) / \(productStore.selected.spu) / \(productStore.selected.volume)")
                 }
                 Section("本 App 没有") {

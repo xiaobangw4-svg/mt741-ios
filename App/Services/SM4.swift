@@ -52,6 +52,55 @@ enum SM4 {
         return Data(out)
     }
 
+    /// 16-byte SM4 block encrypt. Bangcle field141 CTR and CWB CBC share this.
+    static func encryptBlock(_ block: [UInt8], key: [UInt8]) -> [UInt8] {
+        var keyBytes = key
+        while keyBytes.count < 16 { keyBytes.append(0) }
+        keyBytes = Array(keyBytes.prefix(16))
+        var input = block
+        while input.count < 16 { input.append(0) }
+        return cryptBlock(Array(input.prefix(16)), rk: roundKeys(keyBytes))
+    }
+
+    /// Bangcle CWB / `_d_u`: SM4-CBC, PKCS7, key=IV=smk1 hex.
+    static func encryptCBCHex(_ plain: String, keyHex: String, ivHex: String) -> String? {
+        guard let key = hexDecode(keyHex), let iv = hexDecode(ivHex) else { return nil }
+        return hexEncode(encryptCBC(Data(plain.utf8), key: key, iv: iv))
+    }
+
+    static func encryptCBC(_ plain: Data, key: Data, iv: Data) -> Data {
+        var keyBytes = [UInt8](key)
+        while keyBytes.count < 16 { keyBytes.append(0) }
+        keyBytes = Array(keyBytes.prefix(16))
+        var ivBytes = [UInt8](iv)
+        while ivBytes.count < 16 { ivBytes.append(0) }
+        ivBytes = Array(ivBytes.prefix(16))
+        var padded = [UInt8](plain)
+        let pad = 16 - (padded.count % 16)
+        padded.append(contentsOf: repeatElement(UInt8(pad), count: pad))
+        let rk = roundKeys(keyBytes)
+        var out = [UInt8](repeating: 0, count: padded.count)
+        var prev = ivBytes
+        var off = 0
+        while off < padded.count {
+            var block = Array(padded[off..<(off + 16)])
+            for i in 0..<16 { block[i] ^= prev[i] }
+            let enc = cryptBlock(block, rk: rk)
+            for i in 0..<16 { out[off + i] = enc[i] }
+            prev = enc
+            off += 16
+        }
+        return Data(out)
+    }
+
+    static func hexEncode(_ data: Data) -> String {
+        hexEncode([UInt8](data))
+    }
+
+    static func hexEncode(_ bytes: [UInt8]) -> String {
+        bytes.map { String(format: "%02x", $0) }.joined()
+    }
+
     /// Bangcle `_d_u` / CWB body: SM4-CBC, PKCS7, key=IV=smk1 hex.
     static func decryptCBCHex(_ cipherHex: String, keyHex: String, ivHex: String) -> String? {
         guard let cipher = hexDecode(cipherHex),

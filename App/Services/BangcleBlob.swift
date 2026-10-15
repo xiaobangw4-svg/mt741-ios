@@ -3,7 +3,12 @@ import Foundation
 /// Decrypt Bangcle `_d_u` / Content-Web-Bb (smi + SM4-CBC) and pull did / hp.
 enum BangcleBlob {
     static let didIndex = 1
+    static let startIdIndex = 2
     static let hpIndex = 5
+    static let userIdIndex = 10
+    static let wasmVersionIndex = 11
+    static let wasmSignIndex = 12
+    static let ext142Index = 13
 
     static func decryptJSONArray(_ blob: String) -> [Any]? {
         let hex = blob.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -28,6 +33,18 @@ enum BangcleBlob {
 
     static func hp(from blob: String) -> String {
         stringField(decryptJSONArray(blob), hpIndex)
+    }
+
+    static func startId(from blob: String) -> String {
+        stringField(decryptJSONArray(blob), startIdIndex)
+    }
+
+    static func wasmVersion(from blob: String) -> String {
+        stringField(decryptJSONArray(blob), wasmVersionIndex)
+    }
+
+    static func userId(from blob: String) -> String {
+        stringField(decryptJSONArray(blob), userIdIndex)
     }
 
     static func xorHexNibbles(_ hex: String) -> String {

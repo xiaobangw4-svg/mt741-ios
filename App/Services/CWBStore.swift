@@ -7,6 +7,7 @@ final class CWBStore: ObservableObject {
     @Published var cwb: String = ""
     @Published var contentHh: String = ""
     @Published var sourceURL: String = ""
+    @Published var startId: String = ""
 
     var lengthText: String {
         cwb.isEmpty ? "CWB空" : "CWB \(cwb.count)/\(Self.officialLength)"
@@ -16,6 +17,7 @@ final class CWBStore: ObservableObject {
         cwb = ""
         contentHh = ""
         sourceURL = ""
+        startId = ""
     }
 
     func ingest(_ body: Any) {
@@ -27,6 +29,10 @@ final class CWBStore: ObservableObject {
         }
         if !parsed.url.isEmpty {
             sourceURL = parsed.url
+        }
+        let sid = BangcleBlob.startId(from: parsed.cwb)
+        if !sid.isEmpty {
+            startId = sid
         }
     }
 }

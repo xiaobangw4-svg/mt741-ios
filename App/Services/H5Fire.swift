@@ -50,6 +50,13 @@ enum H5Fire {
         } catch (e3) {}
         return '';
       };
+      window.__mt741startId = function () {
+        try {
+          var v = sessionStorage.getItem('__36_i__') || localStorage.getItem('__36_i__') || '';
+          v = String(v || '').replace(/^["']|["']$/g, '').trim();
+          return v;
+        } catch (e) { return ''; }
+      };
       window.__mt741signReady = function () {
         try {
           if (window.__SIGN_WASM_OK__ || window.__wasm_sign_ok__ || window.__SIGN_WASM_VERSION__) return true;

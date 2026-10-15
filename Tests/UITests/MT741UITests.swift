@@ -38,6 +38,7 @@ final class MT741UITests: XCTestCase {
         let status = app.staticTexts["h5.stageStatus"]
         XCTAssertTrue(status.waitForExistence(timeout: 10), "屏幕上应有官网商品页状态条")
         XCTAssertTrue(status.label.contains("CWB"), "状态条应含 CWB，实际：\(status.label)")
+        XCTAssertTrue(status.label.contains("纯算"), "默认纯算签名，实际：\(status.label)")
         XCTAssertTrue(app.tabBars.buttons["商品"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.tabBars.buttons["异步"].exists)
         XCTAssertTrue(app.tabBars.buttons["登录"].exists)

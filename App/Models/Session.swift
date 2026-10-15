@@ -12,6 +12,10 @@ struct Session: Equatable, Codable {
     var bsDvid: String = ""
     /// Page wasm h5_did (`h`+hex) or a bootstrap 32-hex for UA `device-id/`. Survives 换号.
     var h5Did: String = ""
+    /// CWB data[2] `start_id` from page `__36_i__` / last SDK CWB. Per Bangcle session.
+    var h5StartId: String = ""
+    /// Fire with local Murmur + field141 + StyleTotal + SM4. Page wasm stays for fk1 / identity.
+    var pureSign: Bool = true
 
     var isLoggedIn: Bool {
         !userId.isEmpty && (!token.isEmpty || !cookie.isEmpty)
@@ -39,7 +43,7 @@ struct Session: Equatable, Codable {
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case mobile, deviceId, userId, userName, token, cookie, bsDvid, h5Did
+        case mobile, deviceId, userId, userName, token, cookie, bsDvid, h5Did, h5StartId, pureSign
     }
 
     init(
@@ -50,7 +54,9 @@ struct Session: Equatable, Codable {
         token: String = "",
         cookie: String = "",
         bsDvid: String = "",
-        h5Did: String = ""
+        h5Did: String = "",
+        h5StartId: String = "",
+        pureSign: Bool = true
     ) {
         self.mobile = mobile
         self.deviceId = deviceId
@@ -60,6 +66,8 @@ struct Session: Equatable, Codable {
         self.cookie = cookie
         self.bsDvid = CookieBridge.sanitizeBsDvid(bsDvid)
         self.h5Did = CookieBridge.sanitizeH5Did(h5Did)
+        self.h5StartId = h5StartId.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.pureSign = pureSign
     }
 
     init(from decoder: Decoder) throws {
@@ -72,6 +80,8 @@ struct Session: Equatable, Codable {
         cookie = try c.decodeIfPresent(String.self, forKey: .cookie) ?? ""
         bsDvid = CookieBridge.sanitizeBsDvid(try c.decodeIfPresent(String.self, forKey: .bsDvid) ?? "")
         h5Did = CookieBridge.sanitizeH5Did(try c.decodeIfPresent(String.self, forKey: .h5Did) ?? "")
+        h5StartId = (try c.decodeIfPresent(String.self, forKey: .h5StartId) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        pureSign = try c.decodeIfPresent(Bool.self, forKey: .pureSign) ?? true
     }
 }
 
@@ -102,7 +112,7 @@ final class SessionStore: ObservableObject {
 
     func logout() {
         let device = session.authDeviceId.isEmpty ? session.deviceId : session.authDeviceId
-        session = Session(deviceId: device, bsDvid: session.bsDvid, h5Did: session.h5Did)
+        session = Session(deviceId: device, bsDvid: session.bsDvid, h5Did: session.h5Did, h5StartId: session.h5StartId, pureSign: session.pureSign)
         CookieBridge.apply(session)
     }
 
@@ -121,7 +131,7 @@ final class SessionStore: ObservableObject {
     }
 
     func resetForNextAccount() {
-        session = Session(deviceId: SessionStore.newDeviceId(), bsDvid: session.bsDvid, h5Did: session.h5Did)
+        session = Session(deviceId: SessionStore.newDeviceId(), bsDvid: session.bsDvid, h5Did: session.h5Did, h5StartId: session.h5StartId, pureSign: session.pureSign)
     }
 
     /// Page wasm `__ud` / CWB did. Empty raw is ignored. Survives 换号.
@@ -138,6 +148,17 @@ final class SessionStore: ObservableObject {
     func clearH5Did() {
         if !session.h5Did.isEmpty {
             session.h5Did = ""
+        }
+        if !session.h5StartId.isEmpty {
+            session.h5StartId = ""
+        }
+        PureWac.resetCallSeq()
+    }
+
+    func applyStartId(_ raw: String) {
+        let sid = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !sid.isEmpty, session.h5StartId != sid {
+            session.h5StartId = sid
         }
     }
 
