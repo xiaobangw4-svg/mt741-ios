@@ -174,6 +174,9 @@ struct BurstView: View {
                 }
             }
             .navigationTitle("异步")
+            .onChange(of: productStore.amountRevision) { _, _ in
+                amount = productStore.amount(for: productStore.selected)
+            }
             .task(id: productStore.selected.sku) {
                 let product = productStore.selected
                 amount = productStore.amount(for: product)

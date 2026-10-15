@@ -95,5 +95,11 @@ final class ProductTests: XCTestCase {
         XCTAssertEqual(store.amount(for: .sku10193), "8")
         store.setAmount("99", for: .sku741)
         XCTAssertEqual(store.amount(for: .sku741), "6")
+        store.bumpAmount(-1, for: .sku741)
+        XCTAssertEqual(store.amount(for: .sku741), "5")
+        store.bumpAmount(10, for: .sku741)
+        XCTAssertEqual(store.amount(for: .sku741), "6")
+        store.bumpAmount(-10, for: .sku741)
+        XCTAssertEqual(store.amount(for: .sku741), "1")
     }
 }

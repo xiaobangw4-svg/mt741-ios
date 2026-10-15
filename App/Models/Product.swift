@@ -82,6 +82,9 @@ final class ProductStore: ObservableObject {
         didSet { UserDefaults.standard.set(selected.sku, forKey: Self.defaultsKey) }
     }
 
+    /// Bumped on every persist so 飞天 / 异步 both refresh the stepper.
+    @Published private(set) var amountRevision = 0
+
     init(selected: Product? = nil) {
         if let selected {
             self.selected = selected
@@ -99,5 +102,11 @@ final class ProductStore: ObservableObject {
 
     func setAmount(_ raw: String, for product: Product) {
         UserDefaults.standard.set(product.clampAmount(raw), forKey: Self.amountDefaultsKey(product.sku))
+        amountRevision += 1
+    }
+
+    func bumpAmount(_ delta: Int, for product: Product) {
+        let cur = Int(amount(for: product)) ?? 1
+        setAmount(String(cur + delta), for: product)
     }
 }

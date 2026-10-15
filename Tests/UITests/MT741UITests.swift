@@ -27,6 +27,9 @@ final class MT741UITests: XCTestCase {
         let title1l = app.staticTexts["product.title.483"]
         XCTAssertTrue(title1l.waitForExistence(timeout: 5))
         XCTAssertTrue(title1l.label.contains("1L"))
+        XCTAssertTrue(app.staticTexts["product.card.amount"].waitForExistence(timeout: 5), "商品卡瓶数应可调")
+        XCTAssertTrue(app.buttons["product.card.amount.minus"].exists || app.buttons["product.card.amount.plus"].exists)
+        XCTAssertTrue(app.staticTexts["product.amount"].waitForExistence(timeout: 5) || app.otherElements["product.amount"].waitForExistence(timeout: 2))
     }
 
     func testOnScreenOfficialH5Stage() {

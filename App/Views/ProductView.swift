@@ -12,14 +12,15 @@ struct ProductView: View {
                     }
 
                     let selected = productStore.selected
+                    let _ = productStore.amountRevision
                     infoRow("SPU", selected.spu, id: aid(selected, "product.spu"))
                     infoRow("目录价", String(format: "¥%.0f", selected.catalogOutPrice), id: aid(selected, "product.price"))
                     infoRow("限购", "\(selected.limitCount) 瓶", id: aid(selected, "product.limit"))
                     infoRow("检索词", selected.searchKeyword, id: aid(selected, "product.keyword"))
-                    infoRow("默认数量", selected.defaultAmount, id: aid(selected, "product.amount"))
+                    amountRow(selected)
                     infoRow("抢购口", selected.rushURL.lastPathComponent, id: aid(selected, "product.rush"))
 
-                    Text("点选商品后，屏幕上的官网页、异步和组单都跟所选 SKU 走。瓶数在异步页 1–限购 之间可调；500ml / 1L 默认 1 瓶，100ml 默认 2 瓶。")
+                    Text("点选商品后，屏幕上的官网页、异步和组单都跟所选 SKU 走。瓶数在本页和异步页 1–限购 可调，按 SKU 记住。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .accessibilityIdentifier("product.note")
@@ -37,9 +38,7 @@ struct ProductView: View {
 
     private func productCard(_ product: Product) -> some View {
         let selected = productStore.selected.sku == product.sku
-        return Button {
-            productStore.selected = product
-        } label: {
+        return VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("SKU \(product.sku)")
@@ -64,16 +63,18 @@ struct ProductView: View {
                     .foregroundStyle(.white.opacity(0.7))
                     .accessibilityIdentifier(aid(product, "product.volume"))
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppTheme.ink)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(selected ? AppTheme.gold : Color.clear, lineWidth: 2)
-            )
+            .contentShape(Rectangle())
+            .onTapGesture { productStore.selected = product }
+            cardAmount(product)
         }
-        .buttonStyle(.plain)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AppTheme.ink)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(selected ? AppTheme.gold : Color.clear, lineWidth: 2)
+        )
         .accessibilityIdentifier(aid(product, "product.card"))
     }
 
@@ -87,5 +88,69 @@ struct ProductView: View {
                 .accessibilityIdentifier(id)
         }
         .padding(.vertical, 8)
+    }
+
+    private func amountRow(_ product: Product) -> some View {
+        let value = productStore.amount(for: product)
+        let n = Int(value) ?? 1
+        return HStack {
+            Text("瓶数")
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                productStore.bumpAmount(-1, for: product)
+            } label: {
+                Image(systemName: "minus.circle.fill")
+            }
+            .disabled(n <= 1)
+            .accessibilityIdentifier(aid(product, "product.amount.minus"))
+            Text(value)
+                .font(.body.monospaced())
+                .frame(minWidth: 28)
+                .accessibilityIdentifier(aid(product, "product.amount"))
+            Button {
+                productStore.bumpAmount(1, for: product)
+            } label: {
+                Image(systemName: "plus.circle.fill")
+            }
+            .disabled(n >= product.limitCount)
+            .accessibilityIdentifier(aid(product, "product.amount.plus"))
+        }
+        .padding(.vertical, 8)
+        .buttonStyle(.plain)
+    }
+
+    private func cardAmount(_ product: Product) -> some View {
+        let value = productStore.amount(for: product)
+        let n = Int(value) ?? 1
+        return HStack(spacing: 12) {
+            Text("瓶数")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.7))
+            Button {
+                productStore.selected = product
+                productStore.bumpAmount(-1, for: product)
+            } label: {
+                Image(systemName: "minus.circle.fill")
+                    .foregroundStyle(.white)
+            }
+            .disabled(n <= 1)
+            .accessibilityIdentifier(aid(product, "product.card.amount.minus"))
+            Text("\(value)/\(product.limitCount)")
+                .font(.subheadline.monospaced())
+                .foregroundStyle(.white)
+                .accessibilityIdentifier(aid(product, "product.card.amount"))
+            Button {
+                productStore.selected = product
+                productStore.bumpAmount(1, for: product)
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundStyle(.white)
+            }
+            .disabled(n >= product.limitCount)
+            .accessibilityIdentifier(aid(product, "product.card.amount.plus"))
+            Spacer()
+        }
+        .buttonStyle(.plain)
     }
 }
