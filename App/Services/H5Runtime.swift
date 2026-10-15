@@ -159,10 +159,12 @@ final class H5Runtime: NSObject, ObservableObject {
         _ = await waitForCWB(seconds: signed ? 2 : 1)
         session = await syncH5Did(session)
         await CookieBridge.applyAsync(session)
+        let bsDeviceId = await pageBsDeviceCookie()
+        await CookieBridge.pinBsDeviceCookieAsync(bsDeviceId)
         let product = request.product
         let deviceId = session.authDeviceId
         let plain = RushPlain(
-            amount: request.amount.isEmpty ? product.defaultAmount : request.amount,
+            amount: product.clampAmount(request.amount),
             itemCode: product.sku,
             itemPriorityActId: request.actId,
             deviceId: deviceId,
@@ -182,6 +184,7 @@ final class H5Runtime: NSObject, ObservableObject {
             "deviceId": deviceId,
             "wapToken": session.wapToken,
             "userId": session.userId,
+            "bsDeviceId": bsDeviceId,
             "headers": H5Fire.pageHeaders(deviceId: deviceId, product: product),
             "kv": H5Fire.kvPairs(count: n, deviceId: deviceId),
         ]
@@ -452,8 +455,13 @@ final class H5Runtime: NSObject, ObservableObject {
 
     @discardableResult
     func captureH5Did() async -> String {
-        let raw = await pageH5Did()
-        let did = CookieBridge.sanitizeH5Did(raw)
+        var did = CookieBridge.sanitizeH5Did(await pageH5Did())
+        if did.isEmpty {
+            did = BangcleBlob.did(from: await cookieValue("_d_u"))
+        }
+        if did.isEmpty {
+            did = BangcleBlob.did(from: cwbStore?.cwb ?? "")
+        }
         guard !did.isEmpty else { return lastH5Did }
         if lastH5Did != did {
             lastH5Did = did
@@ -467,7 +475,15 @@ final class H5Runtime: NSObject, ObservableObject {
         } else {
             webView.customUserAgent = CookieBridge.userAgent(h5Did: did)
         }
+        let script = "try { window.__FORCE_DID__ = \(jsonAtom(did)); } catch (e) {}"
+        webView.evaluateJavaScript(script, completionHandler: nil)
         return did
+    }
+
+    func pageBsDeviceCookie() async -> String {
+        let existing = CookieBridge.sanitizeBsDeviceCookie(await cookieValue("_bs_device_id"))
+        if !existing.isEmpty { return existing }
+        return CookieBridge.sanitizeBsDeviceCookie(BangcleBlob.hp(from: await cookieValue("_d_u")))
     }
 
     private func syncH5Did(_ session: Session) async -> Session {
@@ -526,10 +542,13 @@ final class H5Runtime: NSObject, ObservableObject {
         if let session {
             let session = await syncH5Did(session)
             await CookieBridge.applyAsync(session)
+            let bsDeviceId = await pageBsDeviceCookie()
+            await CookieBridge.pinBsDeviceCookieAsync(bsDeviceId)
             payload["headers"] = H5Fire.pageHeaders(deviceId: session.authDeviceId, product: product)
             payload["deviceId"] = session.authDeviceId
             payload["wapToken"] = session.wapToken
             payload["userId"] = session.userId
+            payload["bsDeviceId"] = bsDeviceId
         }
         let result = try await callJS(
             "return await window.__mt741request(payload);",
@@ -814,6 +833,7 @@ extension H5Runtime {
             guard message.name == CWBHook.handlerName else { return }
             DispatchQueue.main.async {
                 self.owner?.cwbStore?.ingest(body)
+                Task { _ = await self.owner?.captureH5Did() }
             }
         }
 

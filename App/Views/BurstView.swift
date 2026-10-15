@@ -56,9 +56,35 @@ struct BurstView: View {
                         TextField("活动 ID", text: $actId)
                             .keyboardType(.numberPad)
                             .accessibilityIdentifier("burst.actId")
-                        TextField("数量", text: $amount)
-                            .keyboardType(.numberPad)
-                            .accessibilityIdentifier("burst.amount")
+                        HStack(spacing: 10) {
+                            Text("瓶数")
+                            Spacer()
+                            Button {
+                                bumpAmount(-1)
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                            }
+                            .disabled(busy || (Int(amount) ?? 1) <= 1)
+                            .accessibilityIdentifier("burst.amount.minus")
+                            TextField("瓶数", text: $amount)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.center)
+                                .frame(width: 56)
+                                .accessibilityIdentifier("burst.amount")
+                            Button {
+                                bumpAmount(1)
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                            }
+                            .disabled(busy || (Int(amount) ?? 1) >= productStore.selected.limitCount)
+                            .accessibilityIdentifier("burst.amount.plus")
+                        }
+                        .onChange(of: amount) { _, value in
+                            persistAmount(value)
+                        }
+                        Text("1–\(productStore.selected.limitCount) 瓶，写进抢购 body。当前 \(productStore.selected.volume)。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                         TextField("请求数 n（1-64）", text: $n)
                             .keyboardType(.numberPad)
                             .accessibilityIdentifier("burst.n")
@@ -150,7 +176,7 @@ struct BurstView: View {
             .navigationTitle("异步")
             .task(id: productStore.selected.sku) {
                 let product = productStore.selected
-                amount = product.defaultAmount
+                amount = productStore.amount(for: product)
                 if lastSku != product.sku {
                     actId = ""
                     shopId = ""
@@ -315,7 +341,7 @@ struct BurstView: View {
             return
         }
         let plain = RushPlain(
-            amount: amount.isEmpty ? product.defaultAmount : amount,
+            amount: product.clampAmount(amount),
             itemCode: product.sku,
             itemPriorityActId: actId,
             deviceId: sessionStore.session.authDeviceId,
@@ -473,7 +499,7 @@ struct BurstView: View {
             appendLog("已暂停")
             return
         }
-        appendLog("3/4 actId=\(actId) sku=\(product.sku) via \(via) 页内开火 n=\(n)…")
+        appendLog("3/4 actId=\(actId) sku=\(product.sku) 瓶数=\(product.clampAmount(amount)) via \(via) 页内开火 n=\(n)…")
         await loopBurst(.h5Page)
     }
 
@@ -549,7 +575,7 @@ struct BurstView: View {
         }
         let req = BurstRequest(
             actId: actId.trimmingCharacters(in: .whitespacesAndNewlines),
-            amount: amount.isEmpty ? product.defaultAmount : amount,
+            amount: product.clampAmount(amount),
             n: Int(n) ?? 8,
             concurrency: Int(concurrency) ?? 8,
             intervalMs: Int(interval) ?? 0,
@@ -569,7 +595,7 @@ struct BurstView: View {
                 return .ran
             }
         }
-        appendLog("开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku) \(cwbStore.lengthText)")
+        appendLog("开始 \(dest == .official ? product.rushURL.absoluteString : dest.urlString) n=\(BurstClient.clampN(req.n)) c=\(BurstClient.clampC(req.concurrency)) interval=\(BurstClient.clampInterval(req.intervalMs))ms sku=\(product.sku) 瓶数=\(req.amount) \(cwbStore.lengthText)")
         sessionStore.alignDeviceFromToken()
         let stats: BurstStats
         if dest == .h5Page {
@@ -612,7 +638,7 @@ struct BurstView: View {
                 let placed = await OrderClient.place(
                     session: sessionStore.session,
                     hit: hit,
-                    amount: amount.isEmpty ? product.defaultAmount : amount,
+                    amount: product.clampAmount(amount),
                     shopId: hit.shopId,
                     mock: dest == .mock,
                     address: addr,
@@ -732,6 +758,25 @@ struct BurstView: View {
         }
         running = true
         await loopBurst(dest)
+    }
+
+    private func persistAmount(_ raw: String) {
+        let product = productStore.selected
+        let digits = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Int(digits) != nil else { return }
+        let clamped = product.clampAmount(digits)
+        if clamped != raw {
+            amount = clamped
+        }
+        productStore.setAmount(clamped, for: product)
+    }
+
+    private func bumpAmount(_ delta: Int) {
+        let product = productStore.selected
+        let cur = Int(product.clampAmount(amount)) ?? 1
+        let next = product.clampAmount(String(cur + delta))
+        amount = next
+        productStore.setAmount(next, for: product)
     }
 
     private func applySpeed(_ value: String) {

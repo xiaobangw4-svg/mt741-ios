@@ -76,6 +76,8 @@ final class BurstClientTests: XCTestCase {
         XCTAssertEqual(BurstClient.clampC(32), 16)
         XCTAssertEqual(BurstClient.clampInterval(-1), 0)
         XCTAssertEqual(BurstClient.clampInterval(5000), 2000)
+        XCTAssertEqual(Product.sku741.clampAmount("0"), "1")
+        XCTAssertEqual(Product.sku741.clampAmount("99"), "6")
     }
 
     func testIntervalStaggersStarts() async {

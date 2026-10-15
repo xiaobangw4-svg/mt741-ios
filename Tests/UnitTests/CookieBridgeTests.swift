@@ -15,6 +15,7 @@ final class CookieBridgeTests: XCTestCase {
         XCTAssertEqual(names, ["MT-Token-Wap", "MT-Device-ID-Wap", "YX_SUPPORT_WEBP"])
         XCTAssertTrue(cookies.contains { $0.name == "MT-Token-Wap" && $0.value == "wap-cookie" })
         XCTAssertTrue(cookies.contains { $0.name == "MT-Device-ID-Wap" && $0.value == "DEV-1" })
+        XCTAssertEqual(cookies.filter { $0.name == "YX_SUPPORT_WEBP" }.count, 1)
         XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "1" && $0.domain == CookieBridge.h5Host })
         XCTAssertTrue(cookies.contains { $0.domain == "h5.moutai519.com.cn" })
         XCTAssertFalse(cookies.contains { $0.name == "idCode" })
@@ -26,7 +27,8 @@ final class CookieBridgeTests: XCTestCase {
         let names = Set(cookies.map(\.name))
         XCTAssertEqual(names, ["MT-Device-ID-Wap", "YX_SUPPORT_WEBP"])
         XCTAssertTrue(cookies.contains { $0.name == "MT-Device-ID-Wap" && $0.value == "DEV-2" })
-        XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "1" })
+        XCTAssertEqual(cookies.filter { $0.name == "YX_SUPPORT_WEBP" }.count, 1)
+        XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "1" && $0.domain == CookieBridge.h5Host })
     }
 
     func testCookiesUseJWTDeviceIdWhenSessionFieldDrifted() {
@@ -83,6 +85,11 @@ final class CookieBridgeTests: XCTestCase {
         XCTAssertNil(request.value(forHTTPHeaderField: "BS-DVID"))
         CookieBridge.setNativeHeader(&request, bsDvid: token)
         XCTAssertEqual(request.value(forHTTPHeaderField: "BS-DVID"), token)
+        XCTAssertEqual(CookieBridge.sanitizeBsDeviceCookie("bid-2550189502971-aabf-de1d"), "bid-2550189502971-aabf-de1d")
+        XCTAssertEqual(CookieBridge.sanitizeBsDeviceCookie(" _bs_device_id=BID-2550189502971-AABF-DE1D; "), "bid-2550189502971-aabf-de1d")
+        XCTAssertEqual(CookieBridge.sanitizeBsDeviceCookie(token), "")
+        XCTAssertEqual(CookieBridge.sanitizeBsDeviceCookie("bid-short"), "")
+        XCTAssertEqual(CookieBridge.sanitizeBsDeviceCookie("bid-2550189502971-aabf"), "")
     }
 
     func testRushDropsOfficialOmittedCookies() {

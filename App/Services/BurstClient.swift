@@ -89,7 +89,7 @@ enum BurstClient {
         let token = session.wapToken
         let product = request.product
         let plain = RushPlain(
-            amount: request.amount.isEmpty ? product.defaultAmount : request.amount,
+            amount: product.clampAmount(request.amount),
             itemCode: product.sku,
             itemPriorityActId: request.actId,
             deviceId: session.authDeviceId,

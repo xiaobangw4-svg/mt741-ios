@@ -52,6 +52,61 @@ enum SM4 {
         return Data(out)
     }
 
+    /// Bangcle `_d_u` / CWB body: SM4-CBC, PKCS7, key=IV=smk1 hex.
+    static func decryptCBCHex(_ cipherHex: String, keyHex: String, ivHex: String) -> String? {
+        guard let cipher = hexDecode(cipherHex),
+              let key = hexDecode(keyHex),
+              let iv = hexDecode(ivHex),
+              let plain = decryptCBC(cipher, key: key, iv: iv)
+        else { return nil }
+        return String(data: plain, encoding: .utf8)
+    }
+
+    static func decryptCBC(_ cipher: Data, key: Data, iv: Data) -> Data? {
+        var keyBytes = [UInt8](key)
+        while keyBytes.count < 16 { keyBytes.append(0) }
+        keyBytes = Array(keyBytes.prefix(16))
+        var ivBytes = [UInt8](iv)
+        while ivBytes.count < 16 { ivBytes.append(0) }
+        ivBytes = Array(ivBytes.prefix(16))
+        let bytes = [UInt8](cipher)
+        guard !bytes.isEmpty, bytes.count % 16 == 0 else { return nil }
+        var rk = roundKeys(keyBytes)
+        rk.reverse()
+        var out = [UInt8](repeating: 0, count: bytes.count)
+        var prev = ivBytes
+        var off = 0
+        while off < bytes.count {
+            let block = Array(bytes[off..<(off + 16)])
+            let dec = cryptBlock(block, rk: rk)
+            for i in 0..<16 {
+                out[off + i] = dec[i] ^ prev[i]
+            }
+            prev = block
+            off += 16
+        }
+        let pad = Int(out[out.count - 1])
+        guard pad >= 1, pad <= 16, out.count >= pad else { return nil }
+        let suffix = out.suffix(pad)
+        guard suffix.allSatisfy({ $0 == UInt8(pad) }) else { return nil }
+        return Data(out.dropLast(pad))
+    }
+
+    static func hexDecode(_ hex: String) -> Data? {
+        let s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard s.count.isMultiple(of: 2), !s.isEmpty else { return nil }
+        var out = [UInt8]()
+        out.reserveCapacity(s.count / 2)
+        var i = s.startIndex
+        while i < s.endIndex {
+            let j = s.index(i, offsetBy: 2)
+            guard let b = UInt8(s[i..<j], radix: 16) else { return nil }
+            out.append(b)
+            i = j
+        }
+        return Data(out)
+    }
+
     private static func rotL(_ x: UInt32, _ n: UInt32) -> UInt32 {
         (x << n) | (x >> (32 - n))
     }

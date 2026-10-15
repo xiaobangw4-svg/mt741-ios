@@ -62,4 +62,38 @@ final class ProductTests: XCTestCase {
         XCTAssertEqual(store.selected.sku, "10193")
         XCTAssertEqual(store.selected.defaultAmount, "2")
     }
+
+    func testClampAmountAndPersistPerSKU() {
+        XCTAssertEqual(Product.sku741.clampAmount(""), "1")
+        XCTAssertEqual(Product.sku741.clampAmount("0"), "1")
+        XCTAssertEqual(Product.sku741.clampAmount("6"), "6")
+        XCTAssertEqual(Product.sku741.clampAmount("9"), "6")
+        XCTAssertEqual(Product.sku10193.clampAmount(""), "2")
+        XCTAssertEqual(Product.sku10193.clampAmount("40"), "40")
+        XCTAssertEqual(Product.sku10193.clampAmount("41"), "40")
+        XCTAssertEqual(Product.sku483.clampAmount("3"), "3")
+        let key741 = ProductStore.amountDefaultsKey("741")
+        let key100 = ProductStore.amountDefaultsKey("10193")
+        let prev741 = UserDefaults.standard.string(forKey: key741)
+        let prev100 = UserDefaults.standard.string(forKey: key100)
+        defer {
+            if let prev741 {
+                UserDefaults.standard.set(prev741, forKey: key741)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key741)
+            }
+            if let prev100 {
+                UserDefaults.standard.set(prev100, forKey: key100)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key100)
+            }
+        }
+        let store = ProductStore(selected: .sku741)
+        store.setAmount("4", for: .sku741)
+        store.setAmount("8", for: .sku10193)
+        XCTAssertEqual(store.amount(for: .sku741), "4")
+        XCTAssertEqual(store.amount(for: .sku10193), "8")
+        store.setAmount("99", for: .sku741)
+        XCTAssertEqual(store.amount(for: .sku741), "6")
+    }
 }

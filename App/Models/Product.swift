@@ -62,10 +62,21 @@ struct Product: Equatable, Identifiable {
     static func named(_ sku: String) -> Product {
         all.first { $0.sku == sku } ?? sku741
     }
+
+    /// Rush body `amount` is a decimal string. Clamp to 1...limitCount.
+    func clampAmount(_ raw: String) -> String {
+        let digits = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let n = Int(digits) ?? Int(defaultAmount) ?? 1
+        return String(min(limitCount, max(1, n)))
+    }
 }
 
 final class ProductStore: ObservableObject {
     static let defaultsKey = "mt741.selectedSku"
+
+    static func amountDefaultsKey(_ sku: String) -> String {
+        "mt741.amount.\(sku)"
+    }
 
     @Published var selected: Product {
         didSet { UserDefaults.standard.set(selected.sku, forKey: Self.defaultsKey) }
@@ -78,5 +89,15 @@ final class ProductStore: ObservableObject {
         }
         let sku = UserDefaults.standard.string(forKey: Self.defaultsKey) ?? Product.sku741.sku
         self.selected = Product.named(sku)
+    }
+
+    func amount(for product: Product) -> String {
+        let saved = UserDefaults.standard.string(forKey: Self.amountDefaultsKey(product.sku)) ?? ""
+        if saved.isEmpty { return product.defaultAmount }
+        return product.clampAmount(saved)
+    }
+
+    func setAmount(_ raw: String, for product: Product) {
+        UserDefaults.standard.set(product.clampAmount(raw), forKey: Self.amountDefaultsKey(product.sku))
     }
 }

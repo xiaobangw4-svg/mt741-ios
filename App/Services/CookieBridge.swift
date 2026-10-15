@@ -69,6 +69,61 @@ enum CookieBridge {
         return raw
     }
 
+    /// Cookie `_bs_device_id` is Bangcle `bid-{rev_ts}-{4hex}-{4hex}`. Not the HaoTian UA token.
+    static func sanitizeBsDeviceCookie(_ raw: String) -> String {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let range = text.range(of: "_bs_device_id=", options: .caseInsensitive) {
+            text = String(text[range.upperBound...])
+            if let end = text.firstIndex(of: ";") {
+                text = String(text[..<end])
+            }
+        }
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let parts = text.split(separator: "-")
+        guard parts.count == 4, parts[0] == "bid" else { return "" }
+        guard parts[1].count >= 10, parts[1].allSatisfy(\.isNumber) else { return "" }
+        let hex = CharacterSet(charactersIn: "0123456789abcdef")
+        guard parts[2].count == 4, parts[3].count == 4,
+              parts[2].unicodeScalars.allSatisfy({ hex.contains($0) }),
+              parts[3].unicodeScalars.allSatisfy({ hex.contains($0) })
+        else { return "" }
+        return text
+    }
+
+    static func pinBsDeviceCookie(_ raw: String, completion: (() -> Void)? = nil) {
+        let value = sanitizeBsDeviceCookie(raw)
+        guard !value.isEmpty else {
+            completion?()
+            return
+        }
+        let store = WKWebsiteDataStore.default().httpCookieStore
+        store.getAllCookies { existing in
+            let stale = existing.filter { $0.name == "_bs_device_id" }
+            let group = DispatchGroup()
+            for cookie in stale {
+                group.enter()
+                store.delete(cookie) { group.leave() }
+            }
+            if !value.isEmpty, let cookie = HTTPCookie(properties: [
+                .domain: h5Host,
+                .path: "/",
+                .name: "_bs_device_id",
+                .value: value,
+                .secure: "TRUE",
+            ]) {
+                group.enter()
+                store.setCookie(cookie) { group.leave() }
+            }
+            group.notify(queue: .main) { completion?() }
+        }
+    }
+
+    static func pinBsDeviceCookieAsync(_ raw: String) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            pinBsDeviceCookie(raw) { cont.resume() }
+        }
+    }
+
     static func newUaDeviceId() -> String {
         UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     }
@@ -97,7 +152,7 @@ enum CookieBridge {
         }
     }
 
-    /// Official 2026-10-03 / 10-12 H5 rush drops 顶象 / snaker. Keeps HaoTian `_bs_device_id`.
+    /// Official 2026-10-03 / 10-12 H5 rush drops 顶象 / snaker. Keeps Bangcle `_bs_device_id`.
     static let rushDropNames: Set<String> = [
         "gdxidpyhxdE",
         "__snaker__id",

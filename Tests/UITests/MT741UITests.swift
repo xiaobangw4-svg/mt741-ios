@@ -62,6 +62,11 @@ final class MT741UITests: XCTestCase {
         )
         XCTAssertTrue(app.buttons["burst.fetchAct"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["burst.fetchHint"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.textFields["burst.amount"].waitForExistence(timeout: 8),
+            "瓶数应可调"
+        )
+        XCTAssertTrue(app.buttons["burst.amount.minus"].exists || app.buttons["burst.amount.plus"].exists)
         let start = app.buttons["burst.start"]
         XCTAssertTrue(start.waitForExistence(timeout: 8))
         start.tap()

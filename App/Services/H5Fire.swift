@@ -20,7 +20,7 @@ enum H5Fire {
         };
       }
       onceDeviceHeader();
-      function cookieTails() {
+      function expireTails() {
         return [
           '; path=/',
           '; path=/; domain=h5.moutai519.com.cn',
@@ -28,30 +28,35 @@ enum H5Fire {
         ];
       }
       function expireCookie(name) {
-        var tails = cookieTails();
+        var tails = expireTails();
         for (var i = 0; i < tails.length; i++) {
           try { document.cookie = name + '=' + tails[i] + '; expires=Thu, 01 Jan 1970 00:00:00 GMT'; } catch (e) {}
         }
       }
       function pinCookie(name, value) {
         if (!name || value === undefined || value === null) return;
-        var tails = cookieTails();
-        for (var i = 0; i < tails.length; i++) {
-          try { document.cookie = name + '=' + String(value) + tails[i]; } catch (e) {}
-        }
-      }
-      function pinRushCookies() {
-        expireCookie('gdxidpyhxdE');
-        expireCookie('__snaker__id');
-        // Official 2026-10-03 / 10-12 H5 rush keeps _bs_device_id; do not expire it.
-        pinCookie('YX_SUPPORT_WEBP', '1');
+        expireCookie(name);
         try {
-          var m = String(document.cookie || '').match(/(?:^|; )_bs_device_id=([^;]*)/);
-          if (m && m[1]) pinCookie('_bs_device_id', m[1]);
+          document.cookie = name + '=' + String(value) + '; path=/; domain=h5.moutai519.com.cn';
         } catch (e) {}
       }
-      function pinIdentity(deviceId, token, userId) {
-        pinRushCookies();
+      function pinRushCookies(bsDeviceId) {
+        expireCookie('gdxidpyhxdE');
+        expireCookie('__snaker__id');
+        pinCookie('YX_SUPPORT_WEBP', '1');
+        var bs = String(bsDeviceId || '');
+        if (!bs) {
+          try {
+            var m = String(document.cookie || '').match(/(?:^|; )_bs_device_id=([^;]*)/);
+            if (m && m[1]) bs = decodeURIComponent(m[1]);
+          } catch (e) {}
+        }
+        if (/^bid-[0-9]+-[0-9a-f]{4}-[0-9a-f]{4}$/i.test(bs)) {
+          pinCookie('_bs_device_id', bs.toLowerCase());
+        }
+      }
+      function pinIdentity(deviceId, token, userId, bsDeviceId) {
+        pinRushCookies(bsDeviceId);
         if (deviceId) {
           try { document.cookie = 'MT-Device-ID-Wap=' + String(deviceId) + '; path=/'; } catch (e) {}
         }
@@ -62,6 +67,7 @@ enum H5Fire {
           try { localStorage.setItem('_u_id_', String(userId)); } catch (e) {}
         }
       }
+      window.__mt741pinIdentity = pinIdentity;
       function lockDevice(xhr, deviceId) {
         if (!deviceId) return;
         if (xhr.__mt741didSet) return;
@@ -71,7 +77,8 @@ enum H5Fire {
         function pick(v) {
           v = String(v || '').replace(/^["']|["']$/g, '').trim();
           if (/^h[0-9a-f]{31,32}$/i.test(v)) return v.toLowerCase();
-          return '';
+          var m = String(v).match(/h[0-9a-f]{31,32}/i);
+          return m ? m[0].toLowerCase() : '';
         }
         try {
           if (window.__FORCE_DID__) {
@@ -84,6 +91,13 @@ enum H5Fire {
           var fromStore = pick(ud);
           if (fromStore) return fromStore;
         } catch (e1) {}
+        try {
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            var fromAll = pick(k + ' ' + localStorage.getItem(k));
+            if (fromAll) return fromAll;
+          }
+        } catch (e1b) {}
         try {
           var el = document.getElementById('__ud__');
           if (el) {
@@ -126,11 +140,11 @@ enum H5Fire {
           if (kv.v) { try { xhr.setRequestHeader('MT-V', String(kv.v)); } catch (e) {} }
         }
       }
-      function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv, deviceId, token, userId) {
+      function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv, deviceId, token, userId, bsDeviceId) {
         return new Promise(function (resolve) {
           var t0 = Date.now();
           try {
-            pinIdentity(deviceId, token, userId);
+            pinIdentity(deviceId, token, userId, bsDeviceId);
             var xhr = new XMLHttpRequest();
             xhr.open(method, url, true);
             xhr.withCredentials = true;
@@ -169,7 +183,8 @@ enum H5Fire {
         var deviceId = payload.deviceId || headers['MT-Device-ID'] || headers['mt-device-id'] || '';
         var token = payload.wapToken || '';
         var userId = payload.userId || '';
-        return xhrOnce(payload.method || 'GET', payload.url, payload.body || null, payload.timeoutMs || 12000, headers, payload.kv, deviceId, token, userId);
+        var bsDeviceId = payload.bsDeviceId || '';
+        return xhrOnce(payload.method || 'GET', payload.url, payload.body || null, payload.timeoutMs || 12000, headers, payload.kv, deviceId, token, userId, bsDeviceId);
       };
       window.__mt741fire = function (payload) {
         payload = payload || {};
@@ -183,7 +198,8 @@ enum H5Fire {
         var deviceId = payload.deviceId || headers['MT-Device-ID'] || headers['mt-device-id'] || '';
         var token = payload.wapToken || '';
         var userId = payload.userId || '';
-        pinIdentity(deviceId, token, userId);
+        var bsDeviceId = payload.bsDeviceId || '';
+        pinIdentity(deviceId, token, userId, bsDeviceId);
         var shots = new Array(n);
         return new Promise(function (resolve) {
           var started = 0;
@@ -195,7 +211,7 @@ enum H5Fire {
                 started += 1;
                 inflight += 1;
                 setTimeout(function () {
-                  xhrOnce('POST', url, body, 8000, headers, kvList[i] || {}, deviceId, token, userId).then(function (one) {
+                  xhrOnce('POST', url, body, 8000, headers, kvList[i] || {}, deviceId, token, userId, bsDeviceId).then(function (one) {
                     shots[i] = {
                       idx: i,
                       ok: one.ok,
