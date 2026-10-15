@@ -5,21 +5,50 @@ enum H5Fire {
     (function () {
       if (window.__mt741fireReady) return;
       window.__mt741fireReady = true;
-      function expireCookie(name) {
-        var tails = [
-          '; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT',
-          '; path=/; domain=h5.moutai519.com.cn; expires=Thu, 01 Jan 1970 00:00:00 GMT',
-          '; path=/; domain=.moutai519.com.cn; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      function onceDeviceHeader() {
+        var proto = XMLHttpRequest.prototype;
+        if (proto.__mt741didOnce) return;
+        proto.__mt741didOnce = true;
+        var orig = proto.setRequestHeader;
+        proto.setRequestHeader = function (k, v) {
+          var lk = String(k || '').toLowerCase();
+          if (lk === 'mt-device-id') {
+            if (this.__mt741didSet) return;
+            this.__mt741didSet = true;
+          }
+          return orig.apply(this, arguments);
+        };
+      }
+      onceDeviceHeader();
+      function cookieTails() {
+        return [
+          '; path=/',
+          '; path=/; domain=h5.moutai519.com.cn',
+          '; path=/; domain=.moutai519.com.cn'
         ];
+      }
+      function expireCookie(name) {
+        var tails = cookieTails();
         for (var i = 0; i < tails.length; i++) {
-          try { document.cookie = name + '=' + tails[i]; } catch (e) {}
+          try { document.cookie = name + '=' + tails[i] + '; expires=Thu, 01 Jan 1970 00:00:00 GMT'; } catch (e) {}
+        }
+      }
+      function pinCookie(name, value) {
+        if (!name || value === undefined || value === null) return;
+        var tails = cookieTails();
+        for (var i = 0; i < tails.length; i++) {
+          try { document.cookie = name + '=' + String(value) + tails[i]; } catch (e) {}
         }
       }
       function pinRushCookies() {
         expireCookie('gdxidpyhxdE');
-        expireCookie('_bs_device_id');
         expireCookie('__snaker__id');
-        try { document.cookie = 'YX_SUPPORT_WEBP=0; path=/'; } catch (e) {}
+        // Official 2026-10-03 / 10-12 H5 rush keeps _bs_device_id; do not expire it.
+        pinCookie('YX_SUPPORT_WEBP', '1');
+        try {
+          var m = String(document.cookie || '').match(/(?:^|; )_bs_device_id=([^;]*)/);
+          if (m && m[1]) pinCookie('_bs_device_id', m[1]);
+        } catch (e) {}
       }
       function pinIdentity(deviceId, token, userId) {
         pinRushCookies();
@@ -35,8 +64,42 @@ enum H5Fire {
       }
       function lockDevice(xhr, deviceId) {
         if (!deviceId) return;
+        if (xhr.__mt741didSet) return;
         try { xhr.setRequestHeader('MT-Device-ID', String(deviceId)); } catch (e) {}
       }
+      window.__mt741h5Did = function () {
+        function pick(v) {
+          v = String(v || '').replace(/^["']|["']$/g, '').trim();
+          if (/^h[0-9a-f]{31,32}$/i.test(v)) return v.toLowerCase();
+          return '';
+        }
+        try {
+          if (window.__FORCE_DID__) {
+            var forced = pick(window.__FORCE_DID__);
+            if (forced) return forced;
+          }
+        } catch (e0) {}
+        try {
+          var ud = localStorage.getItem('__ud') || sessionStorage.getItem('__ud') || '';
+          var fromStore = pick(ud);
+          if (fromStore) return fromStore;
+        } catch (e1) {}
+        try {
+          var el = document.getElementById('__ud__');
+          if (el) {
+            var fromEl = pick(el.getAttribute('d') || el.getAttribute('data-did') || '');
+            if (fromEl) return fromEl;
+          }
+        } catch (e2) {}
+        try {
+          var m = String(document.cookie || '').match(/(?:^|; )__ud=([^;]+)/);
+          if (m) {
+            var fromCk = pick(decodeURIComponent(m[1]));
+            if (fromCk) return fromCk;
+          }
+        } catch (e3) {}
+        return '';
+      };
       window.__mt741signReady = function () {
         try {
           if (window.__SIGN_WASM_OK__ || window.__wasm_sign_ok__ || window.__SIGN_WASM_VERSION__) return true;
@@ -54,16 +117,13 @@ enum H5Fire {
             if (val === undefined || val === null) continue;
             var lk = String(k).toLowerCase();
             if (val === '' && lk !== 'x-csrf-token') continue;
-            if (lk === 'content-web-bb' || lk === 'content-hh-bb' || lk === 'cookie' || lk === 'sdk-ver-bb') continue;
+            if (lk === 'content-web-bb' || lk === 'content-hh-bb' || lk === 'cookie' || lk === 'sdk-ver-bb' || lk === 'mt-device-id') continue;
             try { xhr.setRequestHeader(k, String(val)); } catch (e) {}
           }
         }
         if (kv) {
           if (kv.k) { try { xhr.setRequestHeader('MT-K', String(kv.k)); } catch (e) {} }
           if (kv.v) { try { xhr.setRequestHeader('MT-V', String(kv.v)); } catch (e) {} }
-        }
-        if (deviceId) {
-          try { xhr.setRequestHeader('MT-Device-ID', String(deviceId)); } catch (e) {}
         }
       }
       function xhrOnce(method, url, body, timeoutMs, extraHeaders, kv, deviceId, token, userId) {
@@ -160,8 +220,8 @@ enum H5Fire {
     """#
 
     static func pageHeaders(deviceId: String, product: Product = .sku741) -> [String: String] {
-        [
-            "MT-Device-ID": deviceId,
+        _ = deviceId
+        return [
             "MT-APP-Version": AuthDigest.appVersion,
             "Sdk-Ver-Bb": HeaderBuilder.sdkVer,
             "MT-Info": HeaderBuilder.mtInfo,

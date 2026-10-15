@@ -34,6 +34,9 @@ struct MT741App: App {
                         product: productStore.selected
                     )
                 }
+                .onChange(of: h5Runtime.lastH5Did) { _, did in
+                    _ = sessionStore.applyH5Did(did)
+                }
                 .onChange(of: productStore.selected) { _, product in
                     h5Runtime.bindIfNeeded(
                         session: sessionStore.session,

@@ -6,7 +6,7 @@ final class SessionTests: XCTestCase {
         let keys = Session.CodingKeys.allCases.map(\.rawValue)
         XCTAssertFalse(keys.contains("idCode"))
         XCTAssertFalse(keys.contains("id_code"))
-        XCTAssertEqual(Set(keys), Set(["mobile", "deviceId", "userId", "userName", "token", "cookie", "bsDvid"]))
+        XCTAssertEqual(Set(keys), Set(["mobile", "deviceId", "userId", "userName", "token", "cookie", "bsDvid", "h5Did"]))
     }
 
     func testDecodeDropsUnknownIdCode() throws {
@@ -20,6 +20,7 @@ final class SessionTests: XCTestCase {
         XCTAssertNil(object["idCode"])
         XCTAssertEqual(object["token"] as? String, "t")
         XCTAssertEqual(object["bsDvid"] as? String, "")
+        XCTAssertEqual(object["h5Did"] as? String, "")
     }
 
     func testBsDvidRoundTripAndSurvivesLogout() throws {
@@ -56,6 +57,14 @@ final class SessionTests: XCTestCase {
         let object = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
         XCTAssertEqual(object["bsDvid"] as? String, token)
         XCTAssertNil(object["idCode"])
+        XCTAssertEqual(CookieBridge.uaDeviceId(h5Did: store.session.h5Did).count, 32)
+        let pageDid = "h463f41b3f65bfa6dd312863db5daabf"
+        XCTAssertEqual(store.applyH5Did(pageDid), pageDid)
+        store.logout()
+        XCTAssertEqual(store.session.h5Did, pageDid)
+        store.resetForNextAccount()
+        XCTAssertEqual(store.session.h5Did, pageDid)
+        XCTAssertEqual(store.session.bsDvid, token)
     }
 
     func testLoggedInRequiresUserAndToken() {

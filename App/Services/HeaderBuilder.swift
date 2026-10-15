@@ -8,6 +8,7 @@ enum HeaderBuilder {
         "Accept-Language", "MT-Device-ID", "Content-Hh-Bb", "Accept",
         "Content-Type", "Accept-Encoding", "MT-V", "Sec-Fetch-Mode",
     ]
+    /// Official 2026-10-03 H5 rush: Device, Token, _d_u, _sdk_v_, acw, cdn, YX=1. `_bs_device_id` comes from WK SDK, not this string.
     static let cookieOrder = [
         "MT-Device-ID-Wap", "MT-Token-Wap", "_d_u", "_sdk_v_",
         "acw_tc", "cdn_sec_tc", "YX_SUPPORT_WEBP",
@@ -19,7 +20,7 @@ enum HeaderBuilder {
     static let referer = "https://h5.moutai519.com.cn/mt/item/smsp-detail?appConfig=2_1_2"
     static let h5UA = CookieBridge.h5UA
 
-    static func cookie(deviceId: String, token: String, dU: String = "", gdxid: String = "", webp: String? = "0") -> String {
+    static func cookie(deviceId: String, token: String, dU: String = "", gdxid: String = "", webp: String? = "1") -> String {
         let tokenWap = token
         var values: [String: String] = [
             "MT-Device-ID-Wap": deviceId,
@@ -47,13 +48,14 @@ enum HeaderBuilder {
         dU: String = "",
         gdxid: String = "",
         referer: String = HeaderBuilder.referer,
-        bsDvid: String = ""
+        bsDvid: String = "",
+        h5Did: String = ""
     ) -> [(String, String)] {
         let raw: [String: String] = [
             "Content-Web-Bb": cwb,
             "Cookie": cookie(deviceId: deviceId, token: token, dU: dU, gdxid: gdxid),
             "X-Requested-With": "XMLHttpRequest",
-            "User-Agent": CookieBridge.userAgent(deviceId: deviceId, bsDvid: bsDvid),
+            "User-Agent": CookieBridge.userAgent(deviceId: deviceId, bsDvid: bsDvid, h5Did: h5Did),
             "Referer": referer,
             "Origin": origin,
             "MT-K": mtK,

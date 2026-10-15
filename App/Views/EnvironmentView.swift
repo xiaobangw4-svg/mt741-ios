@@ -29,7 +29,7 @@ struct EnvironmentView: View {
                     row("支付", "order/pay + requestPay channel=71 拉起支付宝")
                     row("BS-DVID", "同机官网长令牌贴进 UA；不进 CWB 哈希，换号共用")
                     row("CWB", "H5 WKWebView 拦截 Content-Web-Bb，异步请求自动带上")
-                    row("actId", "purchaseInfoV2 POST hot+spuId=\(productStore.selected.spu)")
+                    row("actId", "每日现拉 purchaseInfoV2，禁止写死。POST hot+spuId=\(productStore.selected.spu)")
                     row("组单", "2000 后 v1 compose/submit 出 orderId")
                     row("出单", "真机登录后点「自动出单」：加载官方页 → 现签 CWB → 拉 actId → 开火 → 组单支付")
                     row("SKU", "\(productStore.selected.sku) / \(productStore.selected.spu) / \(productStore.selected.volume)")

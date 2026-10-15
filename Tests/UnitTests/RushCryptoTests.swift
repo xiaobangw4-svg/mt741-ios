@@ -36,7 +36,7 @@ final class RushCryptoTests: XCTestCase {
         )
         XCTAssertFalse(headers.contains { $0.0 == "Content-Web-Bb" })
         XCTAssertTrue(headers.contains { $0.0 == "Cookie" && $0.1.contains("MT-Token-Wap=tok") })
-        XCTAssertTrue(headers.contains { $0.0 == "Cookie" && $0.1.contains("YX_SUPPORT_WEBP=0") })
+        XCTAssertTrue(headers.contains { $0.0 == "Cookie" && $0.1.contains("YX_SUPPORT_WEBP=1") })
         XCTAssertFalse(headers.contains { $0.0 == "Cookie" && $0.1.contains("gdxidpyhxdE") })
         XCTAssertFalse(headers.contains { $0.0 == "Cookie" && $0.1.contains("_bs_device_id") })
         XCTAssertTrue(headers.contains { $0.0 == "x-csrf-token" && $0.1.isEmpty })
@@ -44,7 +44,9 @@ final class RushCryptoTests: XCTestCase {
         XCTAssertEqual(withCWB.first?.0, "Content-Web-Bb")
         XCTAssertTrue(headers.contains { $0.0 == "User-Agent" && !$0.1.contains("BS-DVID") })
         let token = String(repeating: "F", count: 86)
-        let withDvid = HeaderBuilder.headers(deviceId: "DEV", token: "tok", mtK: "1", mtV: "2", cwb: "abc", bsDvid: token)
+        let withDvid = HeaderBuilder.headers(deviceId: "DEV", token: "tok", mtK: "1", mtV: "2", cwb: "abc", bsDvid: token, h5Did: "h463f41b3f65bfa6dd312863db5daabf")
         XCTAssertTrue(withDvid.contains { $0.0 == "User-Agent" && $0.1.contains("BS-DVID/\(token)") })
+        XCTAssertTrue(withDvid.contains { $0.0 == "User-Agent" && $0.1.contains("device-id/463f41b3f65bfa6dd312863db5daabf") })
+        XCTAssertFalse(withDvid.contains { $0.0 == "User-Agent" && $0.1.contains(AuthDigest.md5Hex("DEV")) })
     }
 }

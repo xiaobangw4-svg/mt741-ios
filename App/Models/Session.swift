@@ -10,6 +10,8 @@ struct Session: Equatable, Codable {
     var cookie: String = ""
     /// Same-phone official HaoTian long token for H5 UA `BS-DVID/`. Empty = omit. Survives 换号.
     var bsDvid: String = ""
+    /// Page wasm h5_did (`h`+hex) or a bootstrap 32-hex for UA `device-id/`. Survives 换号.
+    var h5Did: String = ""
 
     var isLoggedIn: Bool {
         !userId.isEmpty && (!token.isEmpty || !cookie.isEmpty)
@@ -37,7 +39,7 @@ struct Session: Equatable, Codable {
     }
 
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case mobile, deviceId, userId, userName, token, cookie, bsDvid
+        case mobile, deviceId, userId, userName, token, cookie, bsDvid, h5Did
     }
 
     init(
@@ -47,7 +49,8 @@ struct Session: Equatable, Codable {
         userName: String = "",
         token: String = "",
         cookie: String = "",
-        bsDvid: String = ""
+        bsDvid: String = "",
+        h5Did: String = ""
     ) {
         self.mobile = mobile
         self.deviceId = deviceId
@@ -56,6 +59,7 @@ struct Session: Equatable, Codable {
         self.token = token
         self.cookie = cookie
         self.bsDvid = CookieBridge.sanitizeBsDvid(bsDvid)
+        self.h5Did = CookieBridge.sanitizeH5Did(h5Did)
     }
 
     init(from decoder: Decoder) throws {
@@ -67,6 +71,7 @@ struct Session: Equatable, Codable {
         token = try c.decodeIfPresent(String.self, forKey: .token) ?? ""
         cookie = try c.decodeIfPresent(String.self, forKey: .cookie) ?? ""
         bsDvid = CookieBridge.sanitizeBsDvid(try c.decodeIfPresent(String.self, forKey: .bsDvid) ?? "")
+        h5Did = CookieBridge.sanitizeH5Did(try c.decodeIfPresent(String.self, forKey: .h5Did) ?? "")
     }
 }
 
@@ -81,6 +86,9 @@ final class SessionStore: ObservableObject {
         self.session = session
         if self.session.deviceId.isEmpty {
             self.session.deviceId = SessionStore.newDeviceId()
+        }
+        if self.session.h5Did.isEmpty {
+            self.session.h5Did = CookieBridge.newUaDeviceId()
         }
     }
 
@@ -97,7 +105,7 @@ final class SessionStore: ObservableObject {
 
     func logout() {
         let device = session.authDeviceId.isEmpty ? session.deviceId : session.authDeviceId
-        session = Session(deviceId: device, bsDvid: session.bsDvid)
+        session = Session(deviceId: device, bsDvid: session.bsDvid, h5Did: session.h5Did)
         CookieBridge.apply(session)
     }
 
@@ -116,7 +124,17 @@ final class SessionStore: ObservableObject {
     }
 
     func resetForNextAccount() {
-        session = Session(deviceId: SessionStore.newDeviceId(), bsDvid: session.bsDvid)
+        session = Session(deviceId: SessionStore.newDeviceId(), bsDvid: session.bsDvid, h5Did: session.h5Did)
+    }
+
+    /// Page wasm `__ud` / CWB did. Empty raw is ignored. Survives 换号.
+    @discardableResult
+    func applyH5Did(_ raw: String) -> String {
+        let did = CookieBridge.sanitizeH5Did(raw)
+        if !did.isEmpty, session.h5Did != did {
+            session.h5Did = did
+        }
+        return session.h5Did
     }
 
     /// Persist a pasted HaoTian token or a full official UA line. Empty raw clears. Rejects `bid-`.

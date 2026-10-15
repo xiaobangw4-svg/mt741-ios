@@ -41,9 +41,41 @@ enum CookieBridge {
         return sanitizeBsDvid(text)
     }
 
-    static func userAgent(deviceId: String, bsDvid: String = "") -> String {
-        let raw = deviceId.isEmpty ? "MT741" : deviceId
-        let did = AuthDigest.md5Hex(raw)
+    /// Page wasm / CWB did is `h` + 31–32 lowercase hex. UA `device-id/` is the hex after `h`.
+    /// Also accepts a bootstrap 32-hex that is not `md5(UUID)`.
+    static func sanitizeH5Did(_ raw: String) -> String {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (text.hasPrefix("\"") && text.hasSuffix("\"")) || (text.hasPrefix("'") && text.hasSuffix("'")) {
+            text = String(text.dropFirst().dropLast())
+        }
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if text.hasPrefix("h") {
+            let rest = String(text.dropFirst())
+            if (31...32).contains(rest.count), rest.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdef").contains($0) }) {
+                return "h" + rest
+            }
+            return ""
+        }
+        if text.count == 32, text.unicodeScalars.allSatisfy({ CharacterSet(charactersIn: "0123456789abcdef").contains($0) }) {
+            return text
+        }
+        return ""
+    }
+
+    /// UA `device-id/` value: hex after `h` for page did, or a 32-hex bootstrap.
+    static func uaDeviceId(h5Did: String) -> String {
+        let raw = sanitizeH5Did(h5Did)
+        if raw.hasPrefix("h") { return String(raw.dropFirst()) }
+        return raw
+    }
+
+    static func newUaDeviceId() -> String {
+        UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+    }
+
+    static func userAgent(deviceId: String = "", bsDvid: String = "", h5Did: String = "") -> String {
+        _ = deviceId
+        let did = uaDeviceId(h5Did: h5Did)
         var ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 moutaiapp/\(AuthDigest.appVersion) device-id/\(did)"
         let dvid = sanitizeBsDvid(bsDvid)
         if !dvid.isEmpty {
@@ -53,8 +85,7 @@ enum CookieBridge {
     }
 
     static func userAgent(from session: Session) -> String {
-        let device = session.authDeviceId.isEmpty ? "MT741" : session.authDeviceId
-        return userAgent(deviceId: device, bsDvid: session.bsDvid)
+        userAgent(deviceId: session.authDeviceId, bsDvid: session.bsDvid, h5Did: session.h5Did)
     }
 
     static var h5UA: String { userAgent(deviceId: "MT741") }
@@ -66,10 +97,9 @@ enum CookieBridge {
         }
     }
 
-    /// Official 08-29 iOS rush Cookie has no 顶象 / short Bangcle / snaker ids.
+    /// Official 2026-10-03 / 10-12 H5 rush drops 顶象 / snaker. Keeps HaoTian `_bs_device_id`.
     static let rushDropNames: Set<String> = [
         "gdxidpyhxdE",
-        "_bs_device_id",
         "__snaker__id",
     ]
 
@@ -89,7 +119,7 @@ enum CookieBridge {
             specs.append(("MT-Token-Wap", token, h5Host))
             specs.append(("MT-Token-Wap", token, appHost))
         }
-        specs.append(("YX_SUPPORT_WEBP", "0", h5Host))
+        specs.append(("YX_SUPPORT_WEBP", "1", h5Host))
         return specs.compactMap { name, value, host in
             HTTPCookie(properties: [
                 .domain: host,

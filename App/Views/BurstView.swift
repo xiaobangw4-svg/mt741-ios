@@ -5,7 +5,7 @@ struct BurstView: View {
     @EnvironmentObject private var cwbStore: CWBStore
     @EnvironmentObject private var h5Runtime: H5Runtime
     @EnvironmentObject private var productStore: ProductStore
-    @State private var actId = "107427"
+    @State private var actId = ""
     @State private var amount = Product.sku741.defaultAmount
     @State private var n = "8"
     @State private var concurrency = "8"
@@ -68,7 +68,7 @@ struct BurstView: View {
                         Button(busy ? "拉取中…" : "拉取当日 actId") { Task { await fetchActId() } }
                             .disabled(busy)
                             .accessibilityIdentifier("burst.fetchAct")
-                        Text(fetchHint.isEmpty ? "一点就拉当前商品的当日 actId，结果写在上面这一行和日志里。" : fetchHint)
+                        Text(fetchHint.isEmpty ? "活动 ID 每天换。空着会在开火前 POST purchaseInfoV2 现拉；不要填昨天的。" : fetchHint)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .accessibilityIdentifier("burst.fetchHint")
@@ -153,7 +153,11 @@ struct BurstView: View {
                 amount = product.defaultAmount
                 if lastSku != product.sku {
                     actId = ""
+                    shopId = ""
                     lastSku = product.sku
+                }
+                if sessionStore.session.isLoggedIn, !Self.uiTesting {
+                    await fetchActId()
                 }
             }
             .alert("H5 页内出单", isPresented: $confirmH5) {
@@ -237,7 +241,7 @@ struct BurstView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(busy || (target != "h5page" && actId.trimmingCharacters(in: .whitespaces).isEmpty))
+                .disabled(startDisabled)
                 .accessibilityIdentifier("burst.start")
 
                 Button {
@@ -262,6 +266,19 @@ struct BurstView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(Color(.secondarySystemBackground))
+    }
+
+    private static var uiTesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("-ui-testing")
+    }
+
+    private var startDisabled: Bool {
+        if busy { return true }
+        if target == "h5page" || target == "mock" { return false }
+        if target == "custom" {
+            return customURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return false
     }
 
     private func kickoff(_ work: @escaping () async -> Void) {
@@ -293,6 +310,10 @@ struct BurstView: View {
 
     private func dryRun() {
         let product = productStore.selected
+        if actId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            appendLog("没有 actId。先点「拉取当日 actId」，不要手填昨天的。")
+            return
+        }
         let plain = RushPlain(
             amount: amount.isEmpty ? product.defaultAmount : amount,
             itemCode: product.sku,
@@ -442,22 +463,10 @@ struct BurstView: View {
         appendLog(beat
             ? "2/4 fk1 心跳已到，拉当日 actId… \(cwbStore.lengthText)"
             : "2/4 未等到 fk1，仍拉 actId… \(cwbStore.lengthText)")
-        var (info, via) = await pullActId(product: product)
-        if !info.ok {
-            let existing = actId.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !existing.isEmpty {
-                info = PurchaseInfo(
-                    ok: true,
-                    actId: existing,
-                    skuId: product.sku,
-                    shopId: shopId,
-                    message: "使用已填 actId"
-                )
-                via = "已填"
-            }
-        }
+        let (info, via) = await pullActId(product: product)
         applyActId(info, product: product, via: via)
         if !info.ok {
+            appendLog("没有当日 actId，不开火。点「拉取当日 actId」或等放货窗口。")
             return
         }
         if stopped() {
@@ -479,6 +488,14 @@ struct BurstView: View {
         defer {
             busy = false
             running = false
+        }
+        if dest != .mock {
+            let (info, via) = await pullActId(product: product)
+            applyActId(info, product: product, via: via)
+            if !info.ok {
+                appendLog("没有当日 actId，不开火。点「拉取当日 actId」或等放货窗口。")
+                return
+            }
         }
         await loopBurst(dest)
     }
@@ -518,6 +535,18 @@ struct BurstView: View {
 
     private func executeBurst(_ dest: BurstTarget, allowYidunRetry: Bool = true) async -> BurstRoundResult {
         let product = productStore.selected
+        if dest != .mock {
+            var live = actId.trimmingCharacters(in: .whitespacesAndNewlines)
+            if live.isEmpty {
+                let pulled = await pullActId(product: product)
+                applyActId(pulled.0, product: product, via: pulled.1)
+                live = actId.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            if live.isEmpty {
+                appendLog("没有当日 actId，先拉 purchaseInfoV2。")
+                return .ran
+            }
+        }
         let req = BurstRequest(
             actId: actId.trimmingCharacters(in: .whitespacesAndNewlines),
             amount: amount.isEmpty ? product.defaultAmount : amount,
@@ -545,6 +574,7 @@ struct BurstView: View {
         let stats: BurstStats
         if dest == .h5Page {
             stats = await h5Runtime.fire(request: req, session: sessionStore.session)
+            _ = sessionStore.applyH5Did(h5Runtime.lastH5Did)
         } else {
             stats = await BurstClient.burst(request: req, session: sessionStore.session)
         }

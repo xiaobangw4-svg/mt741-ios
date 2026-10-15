@@ -105,7 +105,7 @@ final class YidunSolverTests: XCTestCase {
         let withGdx = HeaderBuilder.cookie(deviceId: "DEV", token: "tok", gdxid: "fp%2F1")
         XCTAssertFalse(withGdx.contains("gdxidpyhxdE"))
         XCTAssertFalse(withGdx.contains("_bs_device_id"))
-        XCTAssertTrue(withGdx.contains("YX_SUPPORT_WEBP=0"))
+        XCTAssertTrue(withGdx.contains("YX_SUPPORT_WEBP=1"))
         XCTAssertTrue(withGdx.contains("MT-Device-ID-Wap=DEV"))
         let plain = HeaderBuilder.cookie(deviceId: "DEV", token: "tok")
         XCTAssertFalse(plain.contains("gdxidpyhxdE"))

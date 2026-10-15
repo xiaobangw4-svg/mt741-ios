@@ -21,16 +21,32 @@ final class H5FireTests: XCTestCase {
         XCTAssertTrue(H5Fire.javaScript.contains("payload.userId"))
         XCTAssertTrue(H5Fire.javaScript.contains("pinRushCookies"))
         XCTAssertTrue(H5Fire.javaScript.contains("gdxidpyhxdE"))
-        XCTAssertTrue(H5Fire.javaScript.contains("_bs_device_id"))
         XCTAssertTrue(H5Fire.javaScript.contains("__snaker__id"))
-        XCTAssertTrue(H5Fire.javaScript.contains("YX_SUPPORT_WEBP=0"))
+        XCTAssertFalse(H5Fire.javaScript.contains("expireCookie('_bs_device_id')"))
+        XCTAssertTrue(H5Fire.javaScript.contains("_bs_device_id"))
+        XCTAssertTrue(H5Fire.javaScript.contains("pinCookie('_bs_device_id'"))
+        XCTAssertTrue(H5Fire.javaScript.contains("YX_SUPPORT_WEBP=1") || H5Fire.javaScript.contains("pinCookie('YX_SUPPORT_WEBP', '1')"))
+        XCTAssertTrue(H5Fire.javaScript.contains("pinCookie('YX_SUPPORT_WEBP'"))
+        XCTAssertTrue(H5Fire.javaScript.contains("domain=h5.moutai519.com.cn"))
+        XCTAssertTrue(H5Fire.javaScript.contains("domain=.moutai519.com.cn"))
+        XCTAssertFalse(H5Fire.javaScript.contains("YX_SUPPORT_WEBP=0"))
+        XCTAssertTrue(H5Fire.javaScript.contains("lk === 'mt-device-id'"))
+        XCTAssertTrue(H5Fire.javaScript.contains("__mt741didSet"))
+        XCTAssertTrue(H5Fire.javaScript.contains("__mt741didOnce"))
+        XCTAssertTrue(H5Fire.javaScript.contains("__mt741h5Did"))
+        XCTAssertTrue(H5Fire.javaScript.contains("localStorage.getItem('__ud')"))
+        XCTAssertEqual(
+            H5Fire.javaScript.components(separatedBy: "setRequestHeader('MT-Device-ID'").count - 1,
+            1,
+            "WKWebView concatenates repeated MT-Device-ID; lockDevice is the only literal setter"
+        )
         XCTAssertTrue(H5Fire.javaScript.contains("x-csrf-token"))
         XCTAssertTrue(H5Fire.javaScript.contains("expires=Thu, 01 Jan 1970"))
     }
 
     func testPageHeadersSkipCWBAndIncludeDevice() {
         let headers = H5Fire.pageHeaders(deviceId: "DEV-1")
-        XCTAssertEqual(headers["MT-Device-ID"], "DEV-1")
+        XCTAssertNil(headers["MT-Device-ID"])
         XCTAssertEqual(headers["MT-APP-Version"], AuthDigest.appVersion)
         XCTAssertNil(headers["Content-Web-Bb"])
         XCTAssertNil(headers["Cookie"])

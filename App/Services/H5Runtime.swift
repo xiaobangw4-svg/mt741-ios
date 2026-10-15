@@ -14,6 +14,7 @@ final class H5Runtime: NSObject, ObservableObject {
     @Published var fk1Beats = 0
     @Published var lastRush = "rush无"
     @Published var lastFk1 = "fk1无"
+    @Published var lastH5Did = ""
     private var fk1WaitedAt: Date?
 
     private var fingerprint = ""
@@ -91,6 +92,7 @@ final class H5Runtime: NSObject, ObservableObject {
         styleStatus = "Style未挂"
         lastRush = "rush无"
         lastFk1 = "fk1无"
+        lastH5Did = ""
         bridgeSession = nil
         installPageScripts(session: nil)
         keepInWindow()
@@ -155,6 +157,7 @@ final class H5Runtime: NSObject, ObservableObject {
         }
         let signed = await waitForSign(seconds: 12)
         _ = await waitForCWB(seconds: signed ? 2 : 1)
+        session = await syncH5Did(session)
         await CookieBridge.applyAsync(session)
         let product = request.product
         let deviceId = session.authDeviceId
@@ -438,11 +441,50 @@ final class H5Runtime: NSObject, ObservableObject {
     func refreshStyleStatus() async {
         keepInWindow()
         for _ in 0..<12 {
+            _ = await captureH5Did()
             let raw = await styleProbeJSON()
             styleStatus = StyleTotalPatch.statusLabel(fromJSON: raw)
             if (cwbStore?.cwb.count ?? 0) > 0 { return }
             if raw.contains("\"wasm\":true") { return }
             try? await Task.sleep(nanoseconds: 400_000_000)
+        }
+    }
+
+    @discardableResult
+    func captureH5Did() async -> String {
+        let raw = await pageH5Did()
+        let did = CookieBridge.sanitizeH5Did(raw)
+        guard !did.isEmpty else { return lastH5Did }
+        if lastH5Did != did {
+            lastH5Did = did
+        }
+        if var session = bridgeSession {
+            if session.h5Did != did {
+                session.h5Did = did
+                bridgeSession = session
+            }
+            webView.customUserAgent = CookieBridge.userAgent(from: session)
+        } else {
+            webView.customUserAgent = CookieBridge.userAgent(h5Did: did)
+        }
+        return did
+    }
+
+    private func syncH5Did(_ session: Session) async -> Session {
+        var session = session
+        let did = await captureH5Did()
+        if !did.isEmpty {
+            session.h5Did = did
+        }
+        webView.customUserAgent = CookieBridge.userAgent(from: session)
+        return session
+    }
+
+    private func pageH5Did() async -> String {
+        await withCheckedContinuation { cont in
+            webView.evaluateJavaScript("window.__mt741h5Did ? window.__mt741h5Did() : ''") { val, _ in
+                cont.resume(returning: (val as? String) ?? "")
+            }
         }
     }
 
@@ -482,6 +524,7 @@ final class H5Runtime: NSObject, ObservableObject {
             payload["body"] = body
         }
         if let session {
+            let session = await syncH5Did(session)
             await CookieBridge.applyAsync(session)
             payload["headers"] = H5Fire.pageHeaders(deviceId: session.authDeviceId, product: product)
             payload["deviceId"] = session.authDeviceId
@@ -786,7 +829,10 @@ extension H5Runtime {
                 self.owner?.ready = self.owner?.isLive ?? false
                 self.owner?.keepInWindow()
                 self.owner?.pushBridgeIdentity()
-                Task { await self.owner?.refreshStyleStatus() }
+                Task {
+                    _ = await self.owner?.captureH5Did()
+                    await self.owner?.refreshStyleStatus()
+                }
             }
         }
 

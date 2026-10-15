@@ -15,18 +15,18 @@ final class CookieBridgeTests: XCTestCase {
         XCTAssertEqual(names, ["MT-Token-Wap", "MT-Device-ID-Wap", "YX_SUPPORT_WEBP"])
         XCTAssertTrue(cookies.contains { $0.name == "MT-Token-Wap" && $0.value == "wap-cookie" })
         XCTAssertTrue(cookies.contains { $0.name == "MT-Device-ID-Wap" && $0.value == "DEV-1" })
-        XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "0" && $0.domain == CookieBridge.h5Host })
+        XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "1" && $0.domain == CookieBridge.h5Host })
         XCTAssertTrue(cookies.contains { $0.domain == "h5.moutai519.com.cn" })
         XCTAssertFalse(cookies.contains { $0.name == "idCode" })
         XCTAssertFalse(cookies.contains { CookieBridge.isRushDropCookie($0.name) })
     }
 
-    func testEmptySessionKeepsDeviceAndWebpZero() {
+    func testEmptySessionKeepsDeviceAndWebpOne() {
         let cookies = CookieBridge.cookies(from: Session(deviceId: "DEV-2"))
         let names = Set(cookies.map(\.name))
         XCTAssertEqual(names, ["MT-Device-ID-Wap", "YX_SUPPORT_WEBP"])
         XCTAssertTrue(cookies.contains { $0.name == "MT-Device-ID-Wap" && $0.value == "DEV-2" })
-        XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "0" })
+        XCTAssertTrue(cookies.contains { $0.name == "YX_SUPPORT_WEBP" && $0.value == "1" })
     }
 
     func testCookiesUseJWTDeviceIdWhenSessionFieldDrifted() {
@@ -43,18 +43,26 @@ final class CookieBridgeTests: XCTestCase {
         XCTAssertTrue(cookies.contains { $0.name == "MT-Token-Wap" && $0.value == jwt })
     }
 
-    func testUserAgentLooksLikeOfficialAppWebView() {
-        let ua = CookieBridge.userAgent(deviceId: "DEV-1")
+    func testUserAgentUsesPageH5DidNotMd5Uuid() {
+        let pageDid = "h463f41b3f65bfa6dd312863db5daabf"
+        XCTAssertEqual(CookieBridge.sanitizeH5Did(pageDid), pageDid)
+        XCTAssertEqual(CookieBridge.uaDeviceId(h5Did: pageDid), "463f41b3f65bfa6dd312863db5daabf")
+        XCTAssertEqual(CookieBridge.uaDeviceId(h5Did: "463f41b3f65bfa6dd312863db5daabff"), "463f41b3f65bfa6dd312863db5daabff")
+        XCTAssertEqual(CookieBridge.sanitizeH5Did("DEV-1"), "")
+        let ua = CookieBridge.userAgent(deviceId: "DEV-1", h5Did: pageDid)
         XCTAssertTrue(ua.contains("moutaiapp/\(AuthDigest.appVersion)"))
-        XCTAssertTrue(ua.contains("device-id/\(AuthDigest.md5Hex("DEV-1"))"))
+        XCTAssertTrue(ua.contains("device-id/463f41b3f65bfa6dd312863db5daabf"))
+        XCTAssertFalse(ua.contains(AuthDigest.md5Hex("DEV-1")))
         XCTAssertFalse(ua.contains("BS-DVID"))
         let token = String(repeating: "A", count: 86)
-        let withDvid = CookieBridge.userAgent(deviceId: "DEV-1", bsDvid: token)
+        let withDvid = CookieBridge.userAgent(deviceId: "DEV-1", bsDvid: token, h5Did: pageDid)
         XCTAssertTrue(withDvid.contains("BS-DVID/\(token)"))
         XCTAssertTrue(CookieBridge.h5UA.contains("device-id/"))
         XCTAssertFalse(CookieBridge.h5UA.contains("BS-DVID"))
-        let sessionUA = CookieBridge.userAgent(from: Session(deviceId: "DEV-1", bsDvid: token))
+        let sessionUA = CookieBridge.userAgent(from: Session(deviceId: "DEV-1", bsDvid: token, h5Did: pageDid))
+        XCTAssertTrue(sessionUA.contains("device-id/463f41b3f65bfa6dd312863db5daabf"))
         XCTAssertTrue(sessionUA.contains("BS-DVID/\(token)"))
+        XCTAssertEqual(CookieBridge.newUaDeviceId().count, 32)
     }
 
     func testSanitizeBsDvidRejectsBidAndAcceptsLongTokenOrUA() {
@@ -79,7 +87,7 @@ final class CookieBridgeTests: XCTestCase {
 
     func testRushDropsOfficialOmittedCookies() {
         XCTAssertTrue(CookieBridge.isRushDropCookie("gdxidpyhxdE"))
-        XCTAssertTrue(CookieBridge.isRushDropCookie("_bs_device_id"))
+        XCTAssertFalse(CookieBridge.isRushDropCookie("_bs_device_id"))
         XCTAssertTrue(CookieBridge.isRushDropCookie("__snaker__id"))
         XCTAssertFalse(CookieBridge.isRushDropCookie("_d_u"))
         XCTAssertFalse(CookieBridge.isRushDropCookie("MT-Token-Wap"))

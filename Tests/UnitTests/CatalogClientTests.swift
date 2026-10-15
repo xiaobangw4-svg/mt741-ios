@@ -89,6 +89,33 @@ final class CatalogClientTests: XCTestCase {
         XCTAssertEqual(ft100.shopId, "1000139")
     }
 
+    func testParseOct12Official741ShopKeyedMap() {
+        let json: [String: Any] = [
+            "code": 2000,
+            "data": [
+                "itemId": "IMTP1000313",
+                "purchaseInfoMap": [
+                    "1001017": [
+                        "defaultSkuFlag": true,
+                        "purchaseInfo": [
+                            "skuId": "741",
+                            "inventory": 0,
+                            "forbiddenBuyDesc": "09:00投放",
+                            "limitCount": 6,
+                            "itemPriorityActId": 107376,
+                            "itemPriorityActV2Switch": true,
+                        ],
+                    ],
+                ],
+            ],
+        ]
+        let info = CatalogClient.parse(json, sku: "741")
+        XCTAssertTrue(info.ok)
+        XCTAssertEqual(info.actId, "107376")
+        XCTAssertEqual(info.skuId, "741")
+        XCTAssertEqual(info.shopId, "1001017")
+    }
+
     func testParseEmptyMapExplainsNoActId() {
         let json: [String: Any] = ["code": 2000, "data": ["purchaseInfoMap": [:]]]
         let info = CatalogClient.parse(json)

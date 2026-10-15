@@ -81,7 +81,8 @@ enum JSBridge {
                 "deviceId": deviceId,
                 "appUserAgent": CookieBridge.userAgent(
                     deviceId: deviceId.isEmpty ? "MT741" : deviceId,
-                    bsDvid: session?.bsDvid ?? ""
+                    bsDvid: session?.bsDvid ?? "",
+                    h5Did: session?.h5Did ?? ""
                 ),
             ] as [String: Any]
         case "detectappenv":
