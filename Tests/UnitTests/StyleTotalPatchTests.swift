@@ -11,7 +11,10 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertTrue(js.contains("__mt741hookStyle"))
         XCTAssertTrue(js.contains("__mt741liftStyle"))
         XCTAssertTrue(js.contains("e << 8"))
-        XCTAssertTrue(js.contains("void u.offsetWidth"))
+        XCTAssertTrue(js.contains("_floor=r*2"))
+        XCTAssertTrue(js.contains("if(_w>o)_w=o"))
+        XCTAssertTrue(js.contains(StyleTotalPatch.loopTo))
+        XCTAssertFalse(js.contains("void u.offsetWidth"))
         XCTAssertTrue(js.contains("_h<10000"))
         XCTAssertTrue(StyleTotalPatch.loopFrom.contains("getComputedStyle(u)"))
         XCTAssertTrue(StyleTotalPatch.loopTo.contains("_h<10000"))
@@ -53,6 +56,25 @@ final class StyleTotalPatchTests: XCTestCase {
         XCTAssertEqual(StyleTotalPatch.hashForSign(token), 19780)
         XCTAssertEqual(StyleTotalPatch.cwbClass(StyleTotalPatch.hash(token)), 768)
         XCTAssertEqual(StyleTotalPatch.cwbClass(StyleTotalPatch.hashForSign(token)), 800)
+    }
+
+    /// Goods-detail border-box samples. The old min-first clamp matched only `0a14…`.
+    /// `2913985b…` is the PureCWB salt; the page formula is already five digits, so lift keeps 23040.
+    func testClosedFormMatchesGoodsDetailBorderBox() {
+        let samples: [(String, UInt32, UInt32)] = [
+            ("34ac841c47f69959", 21376, 21376),
+            ("4ed236dc495a528c", 9600, 39778),
+            ("0a140a64006401ff", 7200, 19780),
+            ("640a1400006401ff", 7360, 42970),
+            ("c8321000002001aa", 2676, 63926),
+            ("0d31a45dd42443f6", 26496, 26496),
+            ("2913985b195cf0d4411d7f73e0b338c6", 23040, 23040),
+        ]
+        for (token, raw, signed) in samples {
+            XCTAssertEqual(StyleTotalPatch.hash(token), raw, token)
+            XCTAssertEqual(StyleTotalPatch.hashForSign(token), signed, token)
+            XCTAssertEqual(StyleTotalPatch.cwbClass(signed), 800, token)
+        }
     }
 
     func testLiftKeepsFiveDigitHash() {

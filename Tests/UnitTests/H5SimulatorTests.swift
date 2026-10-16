@@ -204,6 +204,68 @@ final class H5SimulatorTests: XCTestCase {
         XCTAssertTrue(text.contains("19130"), "webpack e.StyleTotal 应抬成五位，实际：\(text)")
     }
 
+    func testBorderBoxLoopMatchesClosedFormInWK() async throws {
+        let samples: [(String, UInt32)] = [
+            ("34ac841c47f69959", 21376),
+            ("4ed236dc495a528c", 39778),
+            ("0a140a64006401ff", 19780),
+            ("640a1400006401ff", 42970),
+            ("c8321000002001aa", 63926),
+            ("0d31a45dd42443f6", 26496),
+            ("2913985b195cf0d4411d7f73e0b338c6", 23040),
+        ]
+        let list = samples.map { "\"\($0.0)\"" }.joined(separator: ",")
+        let page = """
+        <html><head></head><body>
+        <script>
+        function mt741Closed(token) {
+          var t = String(token || '');
+          function pair(i) {
+            var n = parseInt(t.substr(i, 2), 16);
+            return n === n ? n : 0;
+          }
+          var e = pair(0), n = pair(2), r = pair(4), o = pair(8), a = pair(10), s = pair(12);
+          var u = document.createElement('div');
+          document.body.appendChild(u);
+          \(StyleTotalPatch.loopTo)
+        }
+        var tokens = [\(list)];
+        var out = {};
+        for (var i = 0; i < tokens.length; i++) out[tokens[i]] = mt741Closed(tokens[i]);
+        window.__bb = out;
+        </script>
+        </body></html>
+        """
+        let config = WKWebViewConfiguration()
+        config.defaultWebpagePreferences.allowsContentJavaScript = true
+        let webView = makeVisibleWebView(config: config)
+        webView.loadHTMLString(page, baseURL: URL(string: "https://h5.moutai519.com.cn/"))
+        try await waitUntil(webView, seconds: 8) { wv in
+            (try? await wv.evaluateJavaScript("window.__bb && JSON.stringify(window.__bb)")) as? String
+        }
+        let raw = try await webView.evaluateJavaScript("JSON.stringify(window.__bb || {})")
+        let text = (raw as? String) ?? String(describing: raw)
+        print("H5SIM border-box dump \(text)")
+        let data = Data(text.utf8)
+        let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        for (token, signed) in samples {
+            let value = obj?[token]
+            let got: UInt32
+            if let n = value as? Int {
+                got = UInt32(n)
+            } else if let n = value as? Double {
+                got = UInt32(n)
+            } else if let n = value as? NSNumber {
+                got = n.uint32Value
+            } else {
+                XCTFail("\(token) missing from \(text)")
+                continue
+            }
+            XCTAssertEqual(got, signed, token)
+            XCTAssertEqual(got, StyleTotalPatch.hashForSign(token), token)
+        }
+    }
+
     func testOfficialH5PageProducesCWBOnSimulator() async throws {
         let store = CWBStore()
         let runtime = H5Runtime()
