@@ -45,8 +45,8 @@ final class RushCryptoTests: XCTestCase {
             mtK: "1",
             mtV: "2",
             cwb: "abc",
-            dU: "du1",
             contentHh: "hh1",
+            dU: "du1",
             bsDeviceCookie: "bid-2550189502971-aabf-de1d"
         )
         XCTAssertTrue(withBid.contains { $0.0 == "Cookie" && $0.1.contains("_bs_device_id=bid-2550189502971-aabf-de1d") })
